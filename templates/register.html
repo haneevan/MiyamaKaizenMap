@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>新規登録 | ミヤマ改善ポータル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" type="text/css" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="login-bg flex items-center justify-center min-h-screen p-4">
+    
+    <div class="bg-white/70 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20">
+        
+        <div class="p-8 pb-6">
+            <div class="flex flex-col items-center mb-6">
+                <div class="h-12 w-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white text-xl mb-3 shadow-lg shadow-emerald-100">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h2 class="text-2xl font-black text-slate-800 tracking-tight">アカウント作成</h2>
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest mt-1 font-bold">New Staff Registration</p>
+            </div>
+            
+            <form action="/register" method="POST" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1 ml-1">社員番号 (ID)</label>
+                        <input type="text" name="username" placeholder="例: 12345" required 
+                               class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1 ml-1">氏名 (Full Name)</label>
+                        <input type="text" name="full_name" placeholder="ミヤマ 太郎" required 
+                               class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1 ml-1">部署 (Department)</label>
+                    <select name="department" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm">
+    <option value="" disabled selected>部署を選択してください</option>
+    
+    <optgroup label="役員・管理">
+        <option value="部門長">部門長</option>
+        <option value="総務部/社長付">総務部 / 社長付</option>
+    </optgroup>
+
+    <optgroup label="本社プレス (Headquarters Press)">
+        <option value="本社プレス室">本社プレス室 (Office)</option>
+        <option value="本社プレス1G">本社プレス 1G</option>
+        <option value="本社プレス2G">本社プレス 2G</option>
+    </optgroup>
+
+    <optgroup label="豊田プレス (Toyota Press)">
+        <option value="豊田プレス室">豊田プレス室 (Office)</option>
+        <option value="豊田プレス1G">豊田プレス 1G</option>
+        <option value="豊田プレス2G">豊田プレス 2G</option>
+    </optgroup>
+
+    <optgroup label="冷間鍛造 (Cold Forging)">
+        <option value="本社冷鍛室">本社冷鍛室 (Office)</option>
+        <option value="冷鍛1G">冷鍛 1G</option>
+        <option value="冷鍛2G">冷鍛 2G</option>
+        <option value="冷鍛3G">冷鍛 3G</option>
+    </optgroup>
+
+    <optgroup label="技術・保全 (Engineering & Maintenance)">
+        <option value="保全室">保全室</option>
+        <option value="量産技術室">量産技術室</option>
+        <option value="技術開発室">技術開発室</option>
+        <option value="事業開発室">事業開発室</option>
+        <option value="工機室">工機室</option>
+    </optgroup>
+
+    <optgroup label="品質・管理・営業 (QC, Admin, Sales)">
+        <option value="品質保証部">品質保証部</option>
+        <option value="生産管理室">生産管理室</option>
+        <option value="営業部">営業部</option>
+    </optgroup>
+</select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1 ml-1">パスワード (Password)</label>
+                    <input type="password" name="password" placeholder="••••••••" required 
+                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-100 active:scale-95 mt-2">
+                    アカウントを作成する (Register)
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <a href="/login" class="text-[11px] font-bold text-slate-500 hover:text-blue-600 transition-colors">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> ログイン画面に戻る <span class="font-normal">(Back to Login)</span>
+                </a>
+            </div>
+
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-center">
+                      <p class="text-blue-600 text-xs font-medium">{{ message }}</p>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="bg-slate-800/5 py-4 border-t border-slate-200/40 text-center">
+            <p class="text-slate-400 text-[9px] font-bold uppercase tracking-[0.2em]">ミヤマ工業株式会社 内部システム</p>
+        </div>
+    </div>
+</body>
+</html>
