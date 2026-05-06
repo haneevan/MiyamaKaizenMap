@@ -290,53 +290,72 @@ window.submitKaizenForm = async function() {
     let targetLayer = selectedFloorId ? markers[selectedFloorId] : activeMarkerLayer;
 
     if (targetLayer && tempCoords) {
-        const newEntry = {
-            id: Date.now(),
-            date: new Date().toLocaleDateString(),
-            user: "System Admin", 
-            title: title,
-            category: category,
-            description: desc,
-            method: method,
-            benefits: benefits,
-            image: finalImage, // Correctly saves the preview image
-            floorId: selectedFloorId || "Main Map",
-            coords: tempCoords
-        };
-
-        // Create the marker on the map immediately
-        const m = L.marker(tempCoords).addTo(targetLayer);
-        
-        m.on('click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            openViewModal(newEntry);
-        });
-
-        /* 
-        // FUTURE API INTEGRATION:
         try {
+            // POST to API endpoint
             const response = await fetch('/api/reports', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newEntry)
+                body: JSON.stringify({
+                    title: title,
+                    description: desc,
+                    method: method,
+                    benefits: benefits,
+                    category: category,
+                    floor_id: selectedFloorId || null,
+                    lat: tempCoords.lat,
+                    lng: tempCoords.lng,
+                    photo: finalImage
+                })
             });
+            
+            if (!response.ok) {
+                const errData = await response.json();
+                return alert(`エラー: ${errData.message || 'Unknown error'}`);
+            }
+            
             const result = await response.json();
-            newEntry.id = result.id;
+            
+            if (result.status === 'success') {
+                const newEntry = {
+                    id: result.id,
+                    date: new Date().toLocaleDateString('ja-JP'),
+                    user: document.querySelector('.hidden.md\\:block')?.innerText || "Unknown", 
+                    title: title,
+                    category: category,
+                    description: desc,
+                    method: method,
+                    benefits: benefits,
+                    photo: finalImage,
+                    floorId: selectedFloorId || "Main Map",
+                    coords: tempCoords,
+                    status: 'pending'
+                };
+
+                // Create the marker on the map immediately
+                const m = L.marker(tempCoords).addTo(targetLayer);
+                
+                m.on('click', function(e) {
+                    L.DomEvent.stopPropagation(e);
+                    openViewModal(newEntry);
+                });
+
+                // Save to Cache and Update UI
+                improvementCache.push(newEntry);
+                renderImprovementList();
+                renderPersonalKaizenList(); 
+                
+                alert(result.message || "改善提案を登録しました！");
+                
+                // Final Cleanup
+                window.closeKaizenSidePanel();
+                resetRegistrationForm();
+            } else {
+                alert(`エラー: ${result.message || 'Unknown error'}`);
+            }
         } catch (err) {
             console.error("Save failed", err);
+            alert(`保存に失敗しました: ${err.message}`);
         }
-        */
-
-        // Save to Cache and Update UI
-        improvementCache.push(newEntry);
-        renderImprovementList();
-        renderPersonalKaizenList(); 
-        
-        alert("改善提案を登録しました！");
-        
-        // Final Cleanup
-        window.closeKaizenSidePanel();
-        resetRegistrationForm(); // Recommended helper to clear inputs
     }
 };
 
@@ -864,11 +883,29 @@ window.openImprovementDetails = function(data) {
 function getBlueprintPathFromFloorId(floorId) {
     return floorLookup[floorId]?.fullPath || null;
 }
+
 // --- VIEW MODAL LOGIC (Merged Part 2 + Visual Highlights) ---
 // Function to open the View Modal
-window.openViewModal = function(data) {
+window.openViewModal = async function(data) {
     const modal = document.getElementById('kaizen-view-modal');
     if (!modal) return;
+    
+    // If data has only an id, fetch from API
+    if (data && data.id && !data.title) {
+        try {
+            const response = await fetch(`/api/reports/${data.id}`);
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'success') {
+                    data = result.data;
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load report details:", err);
+            return;
+        }
+    }
+    
     tempCoords = data.coords;
     // Mapping Data to UI - Display all synced form data (using unique modal IDs)
     document.getElementById('view-modal-title').innerText = data.title || "No Title";
@@ -1255,12 +1292,34 @@ document.addEventListener('DOMContentLoaded', () => {
     initLightbox();
     setInterval(updateDashboardClock, 1000);
     setTimeout(() => {
-    updateDashboardMap();
-    if (dashboardMap) {
-        dashboardMap.invalidateSize();
-        // Force it to fit the bounds again after size is calculated
-        const bounds = [[0, 0], [1500, 2250]];
-        dashboardMap.fitBounds(bounds);
-    }
-}, 200);
+        updateDashboardMap();
+        if (dashboardMap) {
+            dashboardMap.invalidateSize();
+            // Force it to fit the bounds again after size is calculated
+            const bounds = [[0, 0], [1500, 2250]];
+            dashboardMap.fitBounds(bounds);
+        }
+    }, 200);
+    
+    // Load initial data from API
+    loadAllReports();
+    updateFormDate();
 });
+
+// Load all reports from API
+async function loadAllReports() {
+    try {
+        const response = await fetch('/api/reports');
+        if (response.ok) {
+            const result = await response.json();
+            if (result.status === 'success') {
+                improvementCache = result.data;
+                renderImprovementList();
+                renderPersonalKaizenList();
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to load reports from API:", err);
+        // Fall back to empty cache if API fails
+    }
+}
