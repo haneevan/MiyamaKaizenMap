@@ -67,7 +67,7 @@ class KaizenReport(db.Model):
     lng = db.Column(db.Float, nullable=False)
     floor_id = db.Column(db.String(50))
     category = db.Column(db.String(50)) # production, cost, quality, safety, 5s, others
-    photo = db.Column(db.LargeBinary, nullable=True) # Store base64 photo data
+    photo = db.Column(db.Text, nullable=True) # changing from LargeBinary to Text
     status = db.Column(db.String(20), default='pending') # pending, approved, completed, rejected
     approval_notes = db.Column(db.Text, nullable=True) # Supervisor/manager feedback
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -219,6 +219,7 @@ def list_kaizens():
         reports = query.order_by(KaizenReport.date_created.desc()).all()
         
         # Convert to JSON-serializable format
+# Convert to JSON-serializable format
         result = []
         for report in reports:
             creator = User.query.get(report.created_by)
@@ -229,10 +230,10 @@ def list_kaizens():
                 'method': report.method or '',
                 'benefits': report.benefits or '',
                 'category': report.category,
-                'floor_id': report.floor_id,
+                'floorId': report.floor_id,  # JS expects 'floorId' (camelCase)
                 'lat': report.lat,
                 'lng': report.lng,
-                'photo': report.photo,  # Photo as base64 string
+                'image': report.photo,       # JS expects 'image', not 'photo'
                 'status': report.status,
                 'approval_notes': report.approval_notes or '',
                 'user': creator.full_name if creator else 'Unknown',
@@ -278,10 +279,10 @@ def view_kaizen(report_id):
                 'method': report.method or '',
                 'benefits': report.benefits or '',
                 'category': report.category,
-                'floor_id': report.floor_id,
+                'floorId': report.floor_id,  # JS expects 'floorId' (camelCase)
                 'lat': report.lat,
                 'lng': report.lng,
-                'photo': report.photo,
+                'image': report.photo,       # JS expects 'image', not 'photo'
                 'status': report.status,
                 'approval_notes': report.approval_notes or '',
                 'user': creator.full_name if creator else 'Unknown',
