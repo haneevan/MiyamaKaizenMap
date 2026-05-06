@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ミヤマ改善ポータル | Kaizen Portal</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.control.layers.tree@1.2.0/L.Control.Layers.Tree.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.control.layers.tree@1.2.0/L.Control.Layers.Tree.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="/static/style.css">
+
+    <style>
+        html { background-color: #f1f5f9; }
+        body { opacity: 0; transition: opacity 0.3s ease-in !important; font-family: 'Noto Sans JP', sans-serif; }
+        body.loaded { opacity: 1; }
+        
+        .nav-active { 
+            background-color: #334155 !important; 
+            color: white !important; 
+            border-left: 4px solid #3b82f6; 
+        }
+
+        .leaflet-control-layers-tree { font-size: 12px; font-weight: bold; border-radius: 8px !important; }
+
+        @keyframes modalBounce {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-modal { animation: modalBounce 0.2s ease-out forwards; }
+    </style>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { document.body.classList.add('loaded'); }, 1); 
+        });
+    </script>
+</head>
+<!--Main-->
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden text-left"> 
+    <!--- Navigation Bar -->
+    <nav class="bg-white shadow-lg px-6 flex items-center justify-between h-16 z-[100] flex-shrink-0">
+        <!--top logo-->
+        <div class="flex items-center">
+            <a href="/" class="group block transition-opacity hover:opacity-80">
+                <img src="/static/logo.png" alt="Miyama Seikou Logo" class="h-10 w-auto" width="160" height="40"> 
+            </a>
+        </div>
+        <!--user menu-->
+        <div class="flex items-center space-x-4 relative text-right">
+            <div class="hidden md:block leading-tight mr-2">
+                <p class="text-slate-800 font-black text-sm">{{ session['full_name'] }}</p>
+                <p class="text-[9px] font-black uppercase tracking-tighter 
+                    {% if session['access_level'] == 4 %} text-red-500 
+                    {% elif session['access_level'] == 3 %} text-purple-600 
+                    {% elif session['access_level'] == 2 %} text-blue-600 
+                    {% else %} text-slate-400 {% endif %}">
+                    {% if session['access_level'] == 4 %} Admin (System Creator)
+                    {% elif session['access_level'] == 3 %} Manager (Bu-chou)
+                    {% elif session['access_level'] == 2 %} Supervisor (Shunin)
+                    {% else %} Staff Member {% endif %}
+                </p>
+            </div>
+
+            <div class="relative">
+                <button onclick="toggleUserMenu()" id="user-menu-button" class="flex items-center focus:outline-none group">
+                    <div class="h-9 w-9 rounded-full bg-slate-200 border-2 border-slate-300 flex items-center justify-center text-slate-500 group-hover:border-blue-500 group-hover:text-blue-500 transition-all">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <i class="fa-solid fa-caret-down ml-2 text-xs text-slate-400 group-hover:text-slate-600"></i>
+                </button>
+                
+                <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-2 z-[9999]">
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">Employee ID</p>
+                        <p class="text-sm font-semibold text-slate-800 truncate">{{ session['username'] }}</p>
+                    </div>
+                    
+                    <a href="javascript:void(0)" onclick="showSection('profile')" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        <i class="fa-regular fa-id-badge mr-2"></i>Profile Details
+                    </a>
+                    
+                    {% if session['access_level'] >= 3 %}
+                    <a href="javascript:void(0)" onclick="showSection('settings')" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-bold">
+                        <i class="fa-solid fa-user-shield mr-2 text-blue-600"></i>Admin Settings
+                    </a>
+                    {% endif %}
+                    
+                    <hr class="my-1 border-slate-100">
+                    <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-black">
+                        <i class="fa-solid fa-right-from-bracket mr-2"></i>Sign out
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!--- Main Content Area-->
+    <div class="flex flex-grow overflow-hidden"> 
+        <!--Sidebar menu-->
+        <aside class="w-64 bg-slate-800 text-white flex flex-col shadow-2xl z-40">
+            <nav class="flex-grow p-4 space-y-2">
+                <a href="javascript:void(0)" onclick="showSection('home')" id="link-home" class="nav-link flex items-center space-x-4 p-3 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white nav-active">
+                    <i class="fa-solid fa-house w-5 text-center"></i><span class="text-sm font-bold">ホーム (Home)</span>
+                </a>
+                <a href="javascript:void(0)" onclick="showSection('map')" id="link-map" class="nav-link flex items-center space-x-4 p-3 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-location-dot w-5 text-center"></i><span class="text-sm font-bold">改善マップ (Map)</span>
+                </a>
+                <a href="javascript:void(0)" onclick="showSection('list')" id="link-list" class="nav-link flex items-center space-x-4 p-3 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-list w-5 text-center"></i><span class="text-sm font-bold">改善リスト (List)</span>
+                </a>
+                <a href="javascript:void(0)" onclick="showSection('personal')" id="link-personal" class="nav-link flex items-center space-x-4 p-3 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-book w-5 text-center"></i><span class="text-sm font-bold">個人リスト (My List)</span>
+                </a>
+            </nav>
+            <div class="p-4 bg-slate-900/50">
+                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest text-center">System under development</p>
+            </div>
+        </aside>
+
+        <button onclick="openGlobalNewForm()" class="fixed bottom-8 right-8 z-[6000] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 hover:scale-110 transition-all group">
+                <i class="fa-solid fa-plus text-xl"></i>
+                <span class="absolute right-16 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    新規改善提案 (New Report)
+                </span>
+        </button>
+
+        <div id="view-report-modal" class="fixed inset-0 z-[6000] hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeViewModal()"></div>
+    <div class="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div id="view-header-bar" class="h-2 w-full bg-blue-500"></div>
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <span id="view-category" class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-slate-100 text-slate-500 rounded">Category</span>
+                    <h3 id="view-title" class="text-xl font-black text-slate-800 mt-2">Title of Report</h3>
+                </div>
+                <button onclick="closeViewModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-circle-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div id="view-image-container" class="w-full aspect-video rounded-xl bg-slate-100 overflow-hidden border border-slate-200 hidden">
+                    <img id="view-image" src="" class="w-full h-full object-cover">
+                </div>
+                
+                <div>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">内容 / Description</p>
+                    <p id="view-description" class="text-slate-600 text-sm leading-relaxed italic">No description provided.</p>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <span id="view-author" class="text-xs font-bold text-slate-500 underline">User Name</span>
+                    </div>
+                    <span id="view-date" class="text-[10px] text-slate-400">2026/04/16</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <!--Content Sections-->
+        <main class="flex-grow bg-white relative overflow-hidden">
+            <!--Home Section-->
+            <section id="content-home" class="p-6 block h-full overflow-y-auto bg-slate-50">
+                <div class="max-w-6xl mx-auto">
+                    <div class="flex justify-between items-end mb-4">
+                        <h2 class="text-xl font-black text-slate-800 tracking-tight">ダッシュボード <span class="text-sm font-normal text-slate-400 ml-2">Dashboard</span></h2>
+                        <div class="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">2026年 03月 24日 現在</div>
+                    </div>
+                    
+                        
+
+                    <div class="grid grid-cols-4 gap-0 rounded-xl overflow-hidden border border-slate-200 shadow-sm mb-6">
+                        <!--improvement index-->
+                        <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-red-500 mb-1 tracking-widest">指摘数</span>
+                            <div class="text-2xl font-black text-slate-800">20</div>
+                            <div class="w-full h-1 bg-red-400 mt-2 rounded-full"></div>
+                        </div>
+                        <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-amber-500 mb-1 tracking-widest">承認待ち</span>
+                            <div class="text-2xl font-black text-slate-800">10</div>
+                            <div class="w-full h-1 bg-amber-400 mt-2 rounded-full"></div>
+                        </div>
+                        <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-emerald-500 mb-1 tracking-widest">改善完了</span>
+                            <div class="text-2xl font-black text-slate-800">05</div>
+                            <div class="w-full h-1 bg-emerald-400 mt-2 rounded-full"></div>
+                        </div>
+                        <div class="bg-white p-4 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-slate-400 mb-1 tracking-widest">アーカイブ</span>
+                            <div class="text-2xl font-black text-slate-800">05</div>
+                            <div class="w-full h-1 bg-slate-300 mt-2 rounded-full"></div>
+                        </div>
+                    <!--------------->
+                    </div>
+                    <!---Recent Improvements--->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6 p-2">   
+                        <div class="relative w-full h-[500px] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden group cursor-pointer" onclick="showSection('map')">
+                            <div id="dashboard-mini-map" class="w-full h-full z-0"></div>
+                            <div class="absolute bottom-4 right-4 bg-white/90 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold text-blue-600 z-10 pointer-events-none">
+                                <i class="fa-solid fa-expand mr-1"></i> Click to Open Full Map
+                            </div>
+                        </div>             
+                    </div>
+                </div>
+            </section>
+            <!--Map Section-->
+            <section id="content-map" class="h-full w-full hidden relative">
+                <div class="absolute top-4 left-1/2 -translate-x-1/2 z-[1001] pointer-events-none">
+                    <div class="bg-slate-900/80 backdrop-blur-md text-white px-5 py-2 rounded-full border border-white/20 shadow-2xl flex items-center space-x-3 transition-all duration-500">
+                        <i class="fa-solid fa-industry text-blue-400 text-xs animate-pulse"></i>
+                        <span id="active-floor-name" class="text-xs font-black tracking-widest uppercase">Loading Floor...</span>
+                    </div>
+                </div>
+                <div id="kaizen-map" class="w-full h-full bg-slate-200"></div>
+            </section>
+            <!--List Section-->
+            <section id="content-list" class="p-8 hidden h-full overflow-y-auto text-left">
+                <h2 class="text-2xl font-black text-slate-800 mb-4">改善リスト <span class="text-sm font-normal text-slate-400 ml-2">All Improvements</span></h2>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                            <tr>
+                                <th class="p-4 text-left">Date</th>
+                                <th class="p-4 text-left">Name</th>
+                                <th class="p-4 text-left">Dept.</th>
+                                <th class="p-4 text-left">Topic/Theme</th>
+                                <th class="p-4 text-left">Category</th>
+                                <th class="p-4 text-left">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="improvement-list-body" class="text-sm text-slate-700 divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </section>
+            <!--Personal Section-->
+            <section id="content-personal" class="p-8 hidden h-full overflow-y-auto text-left bg-slate-50">
+                <h2 class="text-2xl font-black text-slate-800 mb-6">個人改善リスト <span class="text-sm font-normal text-slate-400">My Contributions</span></h2>
+                <div id="personal-kaizen-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </section>
+            <!--Profile Section-->
+            <section id="content-profile" class="p-8 hidden h-full overflow-y-auto text-left bg-slate-50">
+                <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="h-32 bg-slate-800 flex items-end justify-end p-4 relative">
+                        <span class="text-white/30 text-[10px] font-mono uppercase tracking-widest italic">Miyama Internal Identity Card</span>
+                    </div>
+                    
+                    <div class="px-8 pb-8">
+                        <div class="relative -mt-12 mb-6">
+                            <div class="h-24 w-24 bg-blue-600 rounded-2xl border-4 border-white flex items-center justify-center text-white text-3xl shadow-lg">
+                                <i class="fa-solid fa-id-card-clip"></i>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 class="text-2xl font-black text-slate-800">{{ session['full_name'] }}</h2>
+                                <p class="text-slate-500 text-sm font-bold">{{ session['username'] }} <span class="mx-2 text-slate-300">|</span> ミヤマ工業株式会社</p>
+                            </div>
+                            <span class="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-blue-200">Verified Staff</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-6 border-t border-slate-100 pt-6">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">System Access Level</label>
+                                <p class="text-slate-800 font-bold">
+                                    {% if session['access_level'] == 4 %} Admin (Creator)
+                                    {% elif session['access_level'] == 3 %} Manager (Approval Rights)
+                                    {% elif session['access_level'] == 2 %} Supervisor (Edit Rights)
+                                    {% else %} Staff Member (Submitter) {% endif %}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Department</label>
+                                <p class="text-slate-800 font-bold italic">{{ session['department'] if session['department'] else 'N/A' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!--Settings Section-->
+            <section id="content-settings" class="p-8 hidden h-full overflow-y-auto text-left bg-slate-50">
+                <div class="max-w-2xl mx-auto">
+                    <h2 class="text-2xl font-black text-slate-800 mb-1">設定</h2>
+                    <p class="text-slate-500 text-xs mb-8 italic uppercase tracking-wider">System Settings & Admin Controls</p>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+                        <div class="p-5 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                    <i class="fa-solid fa-language text-lg"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-700 text-sm">表示言語 <span class="text-[10px] font-normal text-slate-400 ml-1">Language</span></p>
+                                    <p class="text-[10px] text-slate-400">システムの表示言語を切り替えます</p>
+                                </div>
+                            </div>
+                            <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                <button class="px-3 py-1 text-[10px] font-black rounded-md bg-white shadow-sm text-blue-600">JP</button>
+                                <button class="px-3 py-1 text-[10px] font-bold rounded-md text-slate-400 hover:text-slate-600">EN</button>
+                            </div>
+                        </div>
+
+                        <div class="p-5 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="h-10 w-10 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center">
+                                    <i class="fa-solid fa-bell"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-700 text-sm">通知設定 <span class="text-[10px] font-normal text-slate-400 ml-1">Notifications</span></p>
+                                    <p class="text-[10px] text-slate-400">改善完了時に通知を受け取る</p>
+                                </div>
+                            </div>
+                            <div class="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
+                                <div class="absolute right-0.5 top-0.5 bg-white w-4 h-4 rounded-full shadow-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if session['access_level'] == 4 %}
+                    <div class="mt-10 mb-2 px-2">
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creator Access</h3>
+                    </div>
+                    <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center space-x-3">
+                                <div class="h-8 w-8 bg-blue-500/20 text-blue-400 rounded-lg flex items-center justify-center border border-blue-500/30">
+                                    <i class="fa-solid fa-code text-xs"></i>
+                                </div>
+                                <p class="text-xs font-bold text-white tracking-wide">System Debug Mode</p>
+                            </div>
+                            <span class="text-[9px] bg-blue-500 text-white px-2 py-0.5 rounded font-black animate-pulse">LIVE DB ACCESS</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold py-2 rounded-lg border border-slate-700 transition">
+                                <i class="fa-solid fa-users-gear mr-2"></i> Role Management
+                            </button>
+                            <button class="bg-slate-800 hover:bg-red-900/40 hover:text-red-400 text-slate-300 text-[10px] font-bold py-2 rounded-lg border border-slate-700 transition">
+                                <i class="fa-solid fa-database mr-2"></i> Export DB (.xlsx)
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+    </div>
+    <!--mini modal-->
+    <div id="map-bottom-prompt" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] hidden">
+    <div onclick="openFullForm(event)" class="bg-white shadow-2xl rounded-full px-6 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 border border-slate-200">
+        <div class="bg-blue-100 p-2 rounded-full">
+            <i class="fas fa-plus text-blue-600 text-sm"></i>
+        </div>
+        <span class="text-slate-700 font-medium">何か改善や内容はありますか？</span>
+        <span class="text-slate-400 text-xs">(Click to report)</span>
+    </div>
+    </div>
+
+    <!--Side Panel Overlay-->
+    <div id="side-panel-overlay" 
+        onclick="closeKaizenPanel()" 
+        class="fixed inset-0 bg-black/20 z-[9998] hidden opacity-0 transition-opacity duration-300">
+    </div>
+
+    <!--Side Panel-->
+    <div id="kaizen-side-panel" class="fixed top-0 right-0 h-full w-[450px] bg-white shadow-2xl z-[10000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+    
+        <!-- The Parent Header (h-20) -->
+        <div class="relative h-20 bg-slate-800 flex-shrink-0 flex items-center px-6 border-b border-slate-700">
+    
+        <!-- Left: Close Button -->
+        <button onclick="closeKaizenSidePanel()" class="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white flex items-center justify-center transition-all flex-shrink-0">
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
+
+        <!-- Center: Text Container (flex-1 makes it grow to fill the middle) -->
+        <div class="flex flex-col flex-1 items-center justify-center">
+            <div class="flex items-center gap-2">
+                <span id="badge-status" class="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">新着</span>
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Improvement Proposal Form</span>
+            </div>
+            <h2 id="panel-title-display" class="text-white text-lg font-bold leading-tight">改善提案書</h2>
+        </div>
+
+        <!-- Right: File Icon (flex-shrink-0 keeps it from getting squashed) -->
+        <div class="w-10 flex justify-end opacity-30 flex-shrink-0">
+        <i class="fa-solid fa-file-invoice text-white text-2xl"></i>
+        </div>
+        </div>
+    <!--Form Content-->
+    <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+    <!--User Info-->
+    <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+        <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white">
+            <img src="{{ session['profile_pic_url'] or '/static/resource/PicIcon/default-avatar.png' }}" 
+                alt="User Profile" 
+                class="w-full h-full object-cover">
+        </div>
+
+    <div>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">制作者 (Submitter)</p>
+        <p class="text-sm font-bold text-slate-700">
+            {{ session['full_name'] }} 
+            <span class="font-normal text-slate-400 ml-1">#{{ session['emp_id'] }}</span>
+        </p>
+    </div>
+
+    <div class="ml-auto text-right">
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">日付 (Date)</p>
+        <p id="current-submission-date" class="text-xs font-mono text-slate-500 font-bold">
+            2026.03.27 
+        </p>
+    </div>
+    </div>
+    <!--Title-->
+    <div class="space-y-4">
+        <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase mb-1 block tracking-wider">テーマ (Theme)</label>
+            <input type="text" id="kaizen-title" placeholder="改善提案のテーマを入力してください..." class="w-full border-b-2 border-slate-100 focus:border-blue-500 py-3 text-lg outline-none transition-colors font-bold text-slate-800">
+        </div>
+    <!---Problem Details--->
+        <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase mb-1 block tracking-wider">現状の詳細 (Problem Details)</label>
+            <textarea id="kaizen-description" rows="3" class="w-full bg-slate-50 rounded-xl p-3 text-sm border-none focus:ring-2 focus:ring-blue-100 outline-none" placeholder="現状の困りごとや..."></textarea>
+        </div>
+    </div>
+    <!---classification--->
+    <div class="space-y-3">
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block ml-1">
+            提案区分 (Classification)
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="production" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    生産 (Production)
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="cost" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    原価 (Cost Price)
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="quality" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    品質 (Quality)
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="safety" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    安全 (Safety)
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="5s" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    5S
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kubun" value="others" class="hidden peer">
+                <div class="flex items-center justify-center p-3 rounded-xl border-2 border-slate-50 bg-slate-50 text-slate-500 font-bold text-xs peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 transition-all">
+                    その他 (Others)
+                </div>
+            </label>
+        </div>
+    </div>
+    <!---proposed method--->
+    <div class="space-y-4">
+        <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase mb-1 block tracking-wider">改善案 (Proposed Method)</label>
+            <textarea id="kaizen-method" rows="3" class="w-full bg-slate-50 rounded-xl p-3 text-sm border-none focus:ring-2 focus:ring-blue-100 outline-none" placeholder="どのように改善しますか？"></textarea>
+        </div>
+    <!---benefits--->
+        <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase mb-1 block tracking-wider">期待効果 (Benefits)</label>
+            <textarea id="kaizen-benefits" rows="2" class="w-full bg-slate-50 rounded-xl p-3 text-sm border-none focus:ring-2 focus:ring-blue-100 outline-none" placeholder="時間短縮、コスト削減、安全性向上など..."></textarea>
+        </div>
+    </div>
+    <!---photo upload / before improvement---> 
+    <div class="space-y-3">
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block ml-1">
+            改善前の写真
+        </label>
+        <div onclick="document.getElementById('before-photo-input').click()" 
+            class="w-full aspect-video bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center hover:bg-slate-100 hover:border-blue-300 transition-all cursor-pointer group overflow-hidden relative">
+            
+            <div id="upload-placeholder" class="flex flex-col items-center">
+                <i class="fa-solid fa-camera text-slate-300 text-3xl mb-2 group-hover:text-blue-400 transition-colors"></i>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-500">Tap to Upload Photo</p>
+            </div>
+
+            <img id="form-photo-preview" src="" class="hidden absolute inset-0 w-full h-full object-cover">
+            
+            <input type="file" id="before-photo-input" class="hidden" accept="image/*" onchange="previewImage(event)">
+        </div>
+    </div>
+    <!---location selection--->
+    <div class="p-4 space-y-3 bg-slate-50 rounded-xl border border-slate-200">
+    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">場所の選択 (Location)</label>
+    
+    <select id="select-main-area" class="w-full p-2 text-sm rounded border border-slate-300">
+        <option value="">エリアを選択 (Select Area)</option>
+        <option value="factory">工場エリア (Factories)</option>
+        <option value="office">事務・倉庫 (Office & Others)</option>
+    </select>
+
+    <select id="select-building" disabled class="w-full p-2 text-sm rounded border border-slate-300 opacity-50">
+        <option value="">工場を選択 (Select Building)</option>
+    </select>
+
+    <select id="select-floor" disabled class="w-full p-2 text-sm rounded border border-slate-300 opacity-50">
+        <option value="">階を選択 (Select Floor)</option>
+    </select>
+
+    <div id="sync-mini-map" class="w-full h-48 bg-slate-200 rounded-lg mt-2 overflow-hidden relative border-2 border-dashed border-slate-300 flex items-center justify-center">
+        <span class="text-[10px] text-slate-400">場所を選択するとマップが表示されます</span>
+    </div>
+
+    <!---form actions--->
+        <div class="p-4 border-t border-slate-100 bg-white flex gap-2">
+        <button class="flex-1 py-3 px-4 rounded-xl border border-slate-200 text-slate-500 font-bold text-sm hover:bg-slate-50 transition-all">
+            Save Draft
+        </button>
+        <button onclick="submitKaizenForm()" class="flex-[2] py-3 px-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
+            Submit Proposal
+        </button>
+        </div>
+
+    </div>
+    </div>
+    </div>
+    <!--Map Lightbox-->
+    <div id="map-lightbox" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden opacity-0 transition-opacity duration-300" style="z-index: 15000;">
+    <div class="bg-white w-[90vw] h-[85vh] rounded-2xl relative flex flex-col overflow-hidden shadow-2xl">
+        
+        <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+            <div>
+                <h3 id="lightbox-title" class="font-bold text-slate-800">場所をピン留め (Drop a Pin)</h3>
+                <p id="lightbox-subtitle" class="text-xs text-slate-500 italic">マップ内をクリックして正確な場所を指定してください</p>
+            </div>
+            <button onclick="closeMapLightbox()" class="text-slate-400 hover:text-slate-600 text-2xl px-2">&times;</button>
+        </div>
+        
+        <div id="lightbox-viewport" class="flex-grow overflow-hidden bg-white relative cursor-grab active:cursor-grabbing">
+            <div class="absolute top-4 left-4 z-[7000] flex gap-2">
+                <button onclick="resetLightboxView()" class="bg-white/90 hover:bg-white text-slate-800 p-2 rounded-lg shadow-lg flex items-center gap-2 text-xs font-bold transition-all">
+                    <i class="fa-solid fa-arrows-to-dot"></i> リセット (Reset View)
+                </button>
+            </div>
+            
+            <div id="lightbox-container" class="relative inline-block origin-top-left transition-transform duration-75 ease-out">
+                <img id="lightbox-img" src="" class="max-w-none h-auto pointer-events-none">
+        
+                <div id="lightbox-pin" class="absolute hidden pointer-events-none">
+                    <div class="relative w-[25px] h-[41px]">
+                        <svg viewBox="0 0 25 41" class="absolute inset-0 w-full h-full text-blue-600">
+                            <path fill="currentColor" d="M12.5 0C5.6 0 0 5.6 0 12.5c0 1.8.4 3.5 1 5l11.5 23.5L24 17.5c.6-1.5 1-3.2 1-5C25 5.6 19.4 0 12.5 0z"/>
+                            <circle cx="12.5" cy="12.5" r="4" fill="white"/>
+                        </svg>
+                        <img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png" 
+                             class="absolute w-[41px] h-[41px] max-w-none left-[12px] top-0 pointer-events-none origin-bottom opacity-60">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="lightbox-footer" class="p-4 flex justify-end gap-3 absolute bottom-6 right-6 z-[15001]">
+            <button id="lightbox-cancel-btn" onclick="closeMapLightbox()" class="px-6 py-2 text-sm font-bold text-slate-700 bg-slate-200 rounded-lg transition-colors">
+                Cancel
+            </button>
+            <button id="lightbox-confirm-btn" onclick="confirmLightboxLocation()" class="px-6 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg shadow-blue-200 shadow-lg">
+                Set Location
+            </button>
+        </div>
+    </div>
+    </div>
+
+    <!-- Form modal - Set to A4 dimensions -->
+    <div id="kaizen-view-modal" class="hidden fixed inset-0 z-[11000] bg-black/60 items-center justify-center transition-opacity duration-300">
+        <div id="view-modal-container" class="bg-white a4-container rounded-lg relative flex flex-col overflow-hidden shadow-2xl transform scale-100 transition-transform duration-300">
+            
+            <!-- Header: Integrated Classification Icon + Centered Title -->
+            <div class="p-6 border-b flex justify-between items-center bg-slate-900 text-white shrink-0 relative">
+                
+                <!-- Centered Main Title -->
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                    <h2 class="font-black text-2xl tracking-[0.25em] leading-none text-white">改善提案</h2>
+                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Improvement Proposal</p>
+                </div>
+
+                <!-- Close Button -->
+                <button onclick="closeViewModal()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-all text-3xl z-10">&times;</button>
+            </div>
+            
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-white text-left">
+                
+                <!-- Theme / Title Section -->
+                <div class="pb-6 border-b border-slate-100">
+                    <div class="flex items-center gap-2 mb-1 px-1">
+                        <p class="text-[11px] text-slate-500 font-black uppercase tracking-[0.3em]">テーマ (Theme)</p>
+                    </div>
+                    <h3 id="view-modal-title" class="font-black text-2xl tracking-tight text-slate-800 leading-tight px-1 mb-6">
+                        Safety Cover Installation for Conveyor Line 4
+                    </h3>
+
+                    <!-- Classification Horizontal Selection Row -->
+                    <div class="flex items-center gap-4 px-1">
+                        <span class="text-[11px] font-black text-slate-500">区分 (Class) :</span>
+                        <div class="flex gap-2">
+                            <div id="view-modal-class-production" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">生産性</div>
+                            <div id="view-modal-class-cost" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">原価</div>
+                            <div id="view-modal-class-quality" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">品質</div>
+                            <div id="view-modal-class-safety" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">安全</div>
+                            <div id="view-modal-class-5s" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">５S</div>
+                            <div id="view-modal-class-others" class="px-3 py-1 rounded-md text-[12px] font-bold border border-slate-200 text-slate-400 transition-all">その他</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metadata Grid -->
+                <div class="grid grid-cols-2 gap-4 pb-6 border-b border-slate-100">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 text-lg">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <div>
+                            <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest">制作者 (Submitter)</p>
+                            <p id="view-modal-user" class="text-base font-black text-slate-700">Tanaka Ichiro</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex flex-col justify-center">
+                        <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest">提出日 (Date)</p>
+                        <p id="view-modal-date" class="text-base font-mono font-bold text-blue-600">2024.04.17</p>
+                    </div>
+                </div>
+
+                <!-- Problem Details -->
+                <div class="group text-left">
+                    <div class="flex items-center gap-2 mb-3 px-1">
+                        <div class="w-2 h-5 bg-red-500 rounded-full"></div>
+                        <h4 class="text-[12px] font-black text-slate-500 uppercase tracking-widest">現状の詳細 (Problem)</h4>
+                    </div>
+                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm min-h-[120px]">
+                        <p id="view-modal-description" class="text-base text-slate-700 leading-relaxed whitespace-pre-wrap italic font-medium">The conveyor belt edge is exposed near the operator station, creating a risk of finger entanglement during high-speed operation.</p>
+                    </div>
+                </div>
+
+                <!-- Proposal Section -->
+                <div class="text-left">
+                    <div class="flex items-center gap-2 mb-3 px-1">
+                        <div class="w-2 h-5 bg-blue-500 rounded-full"></div>
+                        <h4 class="text-[12px] font-black text-slate-500 uppercase tracking-widest">改善案 (Proposal)</h4>
+                    </div>
+                    <div class="bg-blue-50/30 p-6 rounded-xl border border-blue-100 shadow-sm min-h-[120px]">
+                        <p id="view-modal-method" class="text-base text-slate-800 leading-relaxed font-semibold">Install a custom-fit polycarbonate safety shield with an interlock sensor that stops the machine if removed.</p>
+                    </div>
+                </div>
+
+                <!-- Benefits -->
+                <div class="bg-green-50/50 p-6 rounded-xl border border-green-100 text-left">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-chart-line text-green-500 text-sm"></i>
+                        <h4 class="text-[12px] font-black text-green-600 uppercase tracking-widest">期待される効果 (Benefits)</h4>
+                    </div>
+                    <p id="view-modal-benefits" class="text-base text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">Eliminates finger entanglement risk completely. Ensures compliance with ISO safety standards.</p>
+                </div>
+
+                <!-- Visual Evidence Grid: Uploaded Pic & Map Location -->
+                <div class="grid grid-cols-2 gap-6 pt-4">
+                    <!-- Uploaded Picture Section -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 px-1">
+                            <i class="fa-solid fa-camera text-slate-400 text-xs"></i>
+                            <h4 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">現場写真 (Evidence Photo)</h4>
+                        </div>
+                        <div id="view-image-container" class="aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center relative group">
+                            <!-- Placeholder (Shows if no image is provided) -->
+                            <div id="upload-placeholder" class="text-center flex flex-col items-center gap-2 opacity-30">
+                                <i class="fa-solid fa-image text-3xl"></i>
+                                <span class="text-[10px] font-bold">No Image Uploaded</span>
+                            </div>
+                            <!-- Actual Image (Hidden by default in CSS logic, but placed here for your JS to swap) -->
+                            <img id="view-image" src="" alt="Kaizen Evidence" class="hidden absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        </div>
+                    </div>
+
+                    <!-- Pinned Location Map Section -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 px-1">
+                            <i class="fa-solid fa-map-location-dot text-blue-500 text-xs"></i>
+                            <h4 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">詳細場所 (Pin Location)</h4>
+                        </div>
+
+                        <div id="view-modal-map-container" class="aspect-video rounded-xl border-2 border-slate-200 bg-slate-100 overflow-hidden relative shadow-inner flex items-center justify-center">
+                            <!-- Blueprint Image will be populated here -->
+                            <div class="blueprint-anchor">
+                                <img id="view-modal-blueprint" src="" class="max-w-full max-h-full object-contain" style="display: none;">
+                            
+                                <!-- Location Pin -->
+                                <div id="view-modal-map-pin" class="absolute hidden pointer-events-none">
+                                    <i class="fa-solid fa-location-dot text-red-500 text-3xl drop-shadow-lg"></i>
+                                </div>
+                            </div>
+                            <!-- Default placeholder -->
+                            <div id="view-modal-map-placeholder" class="text-center flex flex-col items-center gap-2 opacity-30">
+                                <i class="fa-solid fa-map text-4xl"></i>
+                                <span class="text-[10px] font-bold text-slate-400">Blueprint</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Approval Chain -->
+                <div class="pt-8 mt-10 border-t border-slate-100">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6 text-center">承認ルート (Approval Status)</p>
+                    <div class="flex justify-around items-center max-w-lg mx-auto">
+                        <div class="flex flex-col items-center">
+                            <div class="w-12 h-12 rounded-full border-2 border-green-500 flex items-center justify-center text-green-500 mb-2">
+                                <i class="fa-solid fa-check text-lg"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-500">Submitter</span>
+                        </div>
+                        <div class="h-px w-12 bg-slate-200"></div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-2">
+                                <i class="fa-solid fa-hourglass-start text-sm"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-300">Section Head</span>
+                        </div>
+                        <div class="h-px w-12 bg-slate-200"></div>
+                        <div class="flex flex-col items-center opacity-40">
+                            <div class="w-12 h-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-2">
+                                <i class="fa-solid fa-lock text-sm"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-300">Manager</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="p-6 border-t bg-slate-50 flex justify-end items-center shrink-0 gap-3">
+                <button id="view-modal-delete-btn" class="mr-auto px-4 py-2 text-red-600 font-bold text-sm hover:bg-red-50 rounded-lg transition-all flex items-center gap-2" style="display: none;">
+                    <i class="fa-solid fa-trash-can"></i> 削除
+                </button>
+                <button onclick="closeViewModal()" class="px-6 py-2 bg-white text-slate-600 border border-slate-200 rounded-lg font-bold text-sm hover:bg-slate-100 transition-all">
+                    閉じる
+                </button>
+                <button id="view-modal-edit-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center gap-2" style="display: none;">
+                    <i class="fa-solid fa-pen-to-square"></i> 編集
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
