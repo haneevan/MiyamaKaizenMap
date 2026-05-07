@@ -97,7 +97,6 @@ allConfigs.forEach(configSet => {
     }
 });
 
-// --- 2. NAVIGATION ---
 function showSection(sectionId) {
     const sections = ['home', 'map', 'list', 'personal', 'profile', 'settings'];
     closeKaizenSidePanel(); 
@@ -116,20 +115,23 @@ function showSection(sectionId) {
     const activeLink = document.getElementById('link-' + sectionId);
     if (activeLink) activeLink.classList.add('nav-active');
 
-    // --- ADD THIS PART ---
-if (sectionId === 'map') {
-        initMap();
-        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+    if (sectionId === 'map') {
+        initMap(); // Initializes if not already created
+        setTimeout(() => { 
+            if (map) {
+                map.invalidateSize();    // Recalculates map dimensions
+                syncMarkersToMainMap();  // CRITICAL: Forces pins to render now
+            }
+        }, 200);
     } else if (sectionId === 'home') {
         setTimeout(() => {
             updateDashboardMap();
             if (dashboardMap) {
                 dashboardMap.invalidateSize();
-                // Ensure the full blueprint is centered every time we return home
                 const bounds = [[0, 0], [1500, 2250]];
                 dashboardMap.fitBounds(bounds, { animate: false });
             }
-        }, 150); // Slightly longer delay helps if the CSS transition is still moving
+        }, 150);
     }
 }
 
@@ -234,6 +236,41 @@ function initMap() {
     }
 }
 
+// --- 3.2 MARKER SYNC LOGIC ---
+function syncMarkersToMainMap() {
+    console.log("Syncing markers. Cache size:", improvementCache.length); // Debug
+    // 1. Clear existing markers
+    Object.values(markers).forEach(layerGroup => layerGroup.clearLayers());
+
+    // 2. Loop through fetched data
+    improvementCache.forEach(report => {
+
+        console.log("Processing report:", report.id, "Floor ID from DB:", report.floorId); // Debug
+        const layer = markers[report.floorId];
+        
+        if (layer) {
+            const marker = L.marker([report.lat, report.lng]);
+            
+            marker.bindPopup(`
+                <div class="p-2">
+                    <h3 class="font-bold border-b mb-1">${report.title}</h3>
+                    <p class="text-xs text-slate-600">${report.category} | ${report.status}</p>
+                    <button onclick="openViewModal(${report.id})" class="mt-2 text-blue-500 text-xs font-bold">VIEW DETAILS</button>
+                </div>
+            `);
+            
+            layer.addLayer(marker);
+            console.log(`Added marker to layer: ${report.floorId}`); // Debug
+            // --- ADD THIS LOGIC ---
+            // If this marker belongs to the floor currently being looked at, 
+            // manually add it to the map to ensure visibility.
+            if (activeMarkerLayer === layer && map) {
+                marker.addTo(map);
+            }
+        }
+    });
+}
+
 // --- 4. FORM LOGIC ---
 window.openFullForm = function(event) {
     if (event && event.stopPropagation) event.stopPropagation();
@@ -301,7 +338,7 @@ window.submitKaizenForm = async function() {
                     method: method,
                     benefits: benefits,
                     category: category,
-                    floor_id: selectedFloorId || null,
+                    floorId: selectedFloorId || null,
                     lat: tempCoords.lat,
                     lng: tempCoords.lng,
                     photo: finalImage
@@ -1316,6 +1353,7 @@ async function loadAllReports() {
                 improvementCache = result.data;
                 renderImprovementList();
                 renderPersonalKaizenList();
+                syncMarkersToMainMap();
             }
         }
     } catch (err) {
