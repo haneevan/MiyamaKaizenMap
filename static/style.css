@@ -18,20 +18,27 @@ nav, .fixed, .sticky {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-#kaizen-map, .leaflet-pane {
+/* Fix: Target ONLY the container, not the internal panes */
+#kaizen-map {
     z-index: 1 !important;
+    position: relative;
 }
 
 .leaflet-control-container {
     z-index: 400 !important; 
 }
 
+/* Keep these - they help ensure markers stay on top of the blueprint */
 .leaflet-marker-pane {
     z-index: 600 !important;
 }
 
 .leaflet-interaction-pane {
     z-index: 700 !important;
+}
+
+.leaflet-overlay-pane {
+    z-index: 400 !important; /* Ensure the blueprint image is below markers */
 }
 
 /* --- 3. MODALS, PANELS & OVERLAYS --- */
