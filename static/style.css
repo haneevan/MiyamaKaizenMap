@@ -1,340 +1,12 @@
-/* --- 1. GLOBAL SETTINGS & FONTS --- */
+/* ==========================================================================
+   1. GLOBAL SETTINGS & FONTS
+   ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
 
 body {
     font-family: 'Noto Sans JP', sans-serif;
     background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
     margin: 0;
-}
-
-/* --- 2. STRUCTURAL LAYERING (BASE MAP & NAVIGATION) --- */
-nav, .fixed, .sticky {
-    z-index: 5000 !important;
-}
-
-#user-dropdown {
-    z-index: 9999 !important; 
-    position: absolute !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* Fix: Target ONLY the container, not the internal panes */
-#kaizen-map {
-    z-index: 1 !important;
-    position: relative;
-}
-
-.leaflet-control-container {
-    z-index: 400 !important; 
-}
-
-/* Keep these - they help ensure markers stay on top of the blueprint */
-.leaflet-marker-pane {
-    z-index: 650 !important;
-}
-
-.leaflet-interaction-pane {
-    z-index: 700 !important;
-}
-
-.leaflet-overlay-pane {
-    z-index: 400 !important; /* Ensure the blueprint image is below markers */
-}
-
-/* --- 3. MODALS, PANELS & OVERLAYS --- */
-
-/* Side Panel - Registration */
-#kaizen-side-panel {
-    transition: transform 0.3s ease-in-out;
-    transform: translateX(100%);
-    z-index: 5000 !important; 
-}
-
-/* Main View/Detail Modal (A4 Style) */
-#kaizen-view-modal {
-    z-index: 12000 !important; 
-    pointer-events: none; 
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    display: none !important; 
-}
-
-#kaizen-view-modal.active {
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-}
-
-#view-modal-container {
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    transform: scale(0.95);
-}
-
-#kaizen-view-modal.active #view-modal-container {
-    transform: scale(1) !important;
-}
-
-.a4-container {
-    width: 210mm;
-    max-width: 95vw;
-    height: 297mm;
-    max-height: 95vh;
-    background: #ffffff;
-    box-shadow: 0 0 40px rgba(0,0,0,0.3), 0 0 10px rgba(0,0,0,0.1);
-    position: relative;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-}
-
-/* --- 4. LIGHTBOX SYSTEM (TOP LAYER) --- */
-#map-lightbox {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(4px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 15000 !important; /* Higher than #kaizen-view-modal */
-}
-
-#map-lightbox:not(.hidden) {
-    display: flex;
-}
-
-#lightbox-viewport {
-    width: 90vw;
-    height: 80vh;
-    position: relative;
-    overflow: hidden;
-    cursor: grab;
-    background: radial-gradient(circle, #f8fafc 0%, #cbd5e1 100%);
-    border-radius: 12px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-#lightbox-viewport:active {
-    cursor: grabbing;
-}
-
-#lightbox-container {
-    position: absolute;
-    transform-origin: 0 0;
-    will-change: transform;
-}
-
-#lightbox-img {
-    display: block;
-    user-select: none;
-    -webkit-user-drag: none;
-    filter: contrast(1.05) brightness(1.02);
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
-}
-
-#lightbox-footer {
-    /* Ensure no background is inherited */
-    background: transparent !important;
-    border: none !important;
-}
-
-/* Make the 'Back' button look like a floating action button */
-#lightbox-cancel-btn.bg-blue-600 {
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-    border-radius: 8px;
-    padding: 10px 24px;
-    transition: all 0.2s ease;
-}
-
-#lightbox-cancel-btn.bg-blue-600:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.5);
-}
-
-/* --- 5. DASHBOARD & UI COMPONENTS --- */
-input:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-    transition: box-shadow 0.2s ease;
-}
-
-.dashboard-card {
-    background-color: white;
-    padding: 2rem;
-    border-radius: 1rem;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    border: 1px solid #f1f5f9;
-    transition: all 0.15s ease-in-out;
-    min-height: 160px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.dashboard-card:hover {
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-}
-
-.dashboard-stat-number {
-    font-size: 2.25rem;
-    line-height: 2.5rem;
-    font-weight: 900;
-    margin-top: 0.5rem;
-    background: linear-gradient(45deg, #1e293b, #3b82f6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-#dashboard-mini-map {
-    filter: saturate(0.8) brightness(1.02); /* Makes it look like a clean preview */
-    background: #f8fafc;
-    cursor: pointer !important;
-}
-
-#dashboard-mini-map .leaflet-marker-icon {
-    width: 20px !important;
-    height: 20px !important;
-    margin-left: -10px !important;
-    margin-top: -20px !important;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-}
-
-/* Style for the optional tooltips */
-.dashboard-tooltip {
-    background: #1e293b;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 10px;
-    font-weight: bold;
-}
-
-.nav-active {
-    background-color: #334155;
-    color: white !important;
-    border-left: 4px solid #3b82f6;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
-}
-
-/* --- 6. LEAFLET CUSTOM STYLES (POPUPS & TREE) --- */
-.leaflet-popup-content-wrapper {
-    background: rgba(255, 255, 255, 0.9) !important;
-    backdrop-filter: blur(8px);
-    border-radius: 12px;
-}
-
-.leaflet-marker-icon {
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-    cursor: pointer !important;
-    pointer-events: auto !important; 
-}
-
-.custom-marker-pin {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #ef4444; 
-    color: white;
-    border: 2px solid white;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-}
-
-.leaflet-control-layers-tree {
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
-    padding: 12px !important;
-    background: white !important;
-    z-index: 1000 !important; /* Ensure it stays above map layers but below nav/modals */
-    max-height: 70vh; /* Prevent it from going off-screen on small heights */
-    overflow-y: auto;
-}
-
-.leaflet-layerstree-header {
-    font-weight: 800 !important;
-    color: #1e293b;
-    text-transform: uppercase;
-    font-size: 11px;
-}
-
-.leaflet-layerstree-header::before {
-    content: '\f07b'; 
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 8px;
-    color: #64748b;
-}
-
-/* --- 7. BLUEPRINT & PIN SYNC FIXES --- */
-.blueprint-anchor {
-    position: relative !important;
-    display: inline-block;
-    line-height: 0;
-}
-
-#view-modal-blueprint, .sync-mini-map-img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-}
-
-/* Shared positioning logic (Keep this grouped) */
-#view-modal-map-pin, #mini-pin, #lightbox-pin {
-    position: absolute !important;
-    z-index: 100;
-    pointer-events: none;
-    transform: translate(-50%, -100%) !important;
-}
-
-/* Specific styling for the mini-map version only */
-#mini-pin {
-    color: #ef4444;
-    font-size: 18px;
-}
-
-/* Specific styling for the big lightbox version only */
-#lightbox-pin {
-    color: #ef4444; 
-    font-size: 32px; /* Bigger for the high-res map */
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-}
-
-/* Add a "printed" look to headings within the modal */
-#view-modal-title {
-    border-bottom: 2px solid #1e293b;
-    padding-bottom: 0.5rem;
-}
-
-/*#lightbox-pin {
-    color: #ef4444;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-} */
-
-.cursor-zoom-in {
-    cursor: zoom-in;
-}
-
-/* --- 8. UTILITIES & ANIMATIONS --- */
-.opacity-100 {
-    opacity: 1 !important;
 }
 
 body.login-bg {
@@ -350,13 +22,188 @@ body.modal-open {
     height: 100vh;
 }
 
+/* ==========================================================================
+   2. STRUCTURAL LAYERING (Z-INDEX MASTER)
+   ========================================================================== */
+nav, .fixed, .sticky { z-index: 5000 !important; }
+
+#kaizen-side-panel { z-index: 5000 !important; }
+
+#kaizen-view-modal { z-index: 12000 !important; }
+
+#map-lightbox { z-index: 15000 !important; }
+
+#user-dropdown {
+    z-index: 9999 !important; 
+    position: absolute !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   3. LEAFLET & MAP COMPONENTS
+   ========================================================================== */
+#kaizen-map {
+    z-index: 1 !important;
+    position: relative;
+}
+
+.leaflet-control-container { z-index: 400 !important; }
+.leaflet-overlay-pane { z-index: 400 !important; } /* Blueprint below markers */
+.leaflet-marker-pane { z-index: 650 !important; }
+.leaflet-interaction-pane { z-index: 700 !important; }
+
+.leaflet-popup-content-wrapper {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+}
+
+.leaflet-control-layers-tree {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    background: white !important;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* ==========================================================================
+   4. DASHBOARD & UI COMPONENTS
+   ========================================================================== */
+.dashboard-card {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    border: 1px solid #f1f5f9;
+    transition: all 0.15s ease-in-out;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.dashboard-card:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.dashboard-stat-number {
+    font-size: 2.25rem;
+    font-weight: 900;
+    background: linear-gradient(45deg, #1e293b, #3b82f6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-active {
+    background-color: #334155;
+    color: white !important;
+    border-left: 4px solid #3b82f6;
+}
+
+/* ==========================================================================
+   5. MODAL SYSTEM (VIEW & LIGHTBOX)
+   ========================================================================== */
+
+/* Main View Modal */
+#kaizen-view-modal {
+    pointer-events: none; 
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: none !important; 
+}
+
+#kaizen-view-modal.active {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.a4-container {
+    width: 210mm;
+    max-width: 95vw;
+    height: 297mm;
+    max-height: 95vh;
+    background: #ffffff;
+    box-shadow: 0 0 40px rgba(0,0,0,0.3);
+    position: relative;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+}
+
+/* Evidence Photo Fixes */
+#view-image-container {
+    position: relative !important;
+    background-color: #f8fafc !important;
+    z-index: 10;
+}
+
+#view-image {
+    z-index: 50 !important; 
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#view-placeholder { z-index: 5; }
+
+/* Lightbox System */
+#map-lightbox {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#map-lightbox:not(.hidden) { display: flex; }
+
+/* ==========================================================================
+   6. BLUEPRINT & PIN LOGIC
+   ========================================================================== */
+.blueprint-anchor {
+    position: relative !important;
+    display: inline-block;
+    line-height: 0;
+}
+
+#view-modal-map-pin, #mini-pin, #lightbox-pin {
+    position: absolute !important;
+    z-index: 100;
+    pointer-events: none;
+    transform: translate(-50%, -100%) !important;
+}
+
+#mini-pin { color: #ef4444; font-size: 18px; }
+#lightbox-pin { 
+    color: #ef4444; 
+    font-size: 32px; 
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); 
+}
+
+/* ==========================================================================
+   7. UTILITIES & ANIMATIONS
+   ========================================================================== */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+.cursor-zoom-in { cursor: zoom-in; }
+.opacity-100 { opacity: 1 !important; }
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes marker-pulse {
-    0% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(59, 130, 246, 0)); }
-    50% { transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5)); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(59, 130, 246, 0)); }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
 }

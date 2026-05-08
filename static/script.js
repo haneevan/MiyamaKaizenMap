@@ -238,14 +238,15 @@ function initMap() {
 
 // --- 3.2 MARKER SYNC LOGIC ---
 function syncMarkersToMainMap() {
-    console.log("Syncing markers. Cache size:", improvementCache.length); // Debug
+    // hashing console.log("Syncing markers. Cache size:", improvementCache.length); // Debug
+    // console.log("Syncing markers. Cache size:", improvementCache.length); // Debug
     // 1. Clear existing markers
     Object.values(markers).forEach(layerGroup => layerGroup.clearLayers());
 
     // 2. Loop through fetched data
     improvementCache.forEach(report => {
 
-        console.log("Processing report:", report.id, "Floor ID from DB:", report.floorId); // Debug
+        // console.log("Processing report:", report.id, "Floor ID from DB:", report.floorId); // Debug
         const layer = markers[report.floorId];
         
         if (layer) {
@@ -260,7 +261,7 @@ function syncMarkersToMainMap() {
             `);
             
             layer.addLayer(marker);
-            console.log(`Added marker to layer: ${report.floorId}`); // Debug
+            //console.log(`Added marker to layer: ${report.floorId}`); // Debug
             // --- ADD THIS LOGIC ---
             // If this marker belongs to the floor currently being looked at, 
             // manually add it to the map to ensure visibility.
@@ -910,13 +911,12 @@ function getBlueprintPathFromFloorId(floorId) {
     return floorLookup[floorId]?.fullPath || null;
 }
 
-// --- VIEW MODAL LOGIC (Merged Part 2 + Visual Highlights) ---
-// Function to open the View Modal
+// --- VIEW MODAL LOGIC (Fully Updated & Optimized) ---
 window.openViewModal = async function(data) {
     const modal = document.getElementById('kaizen-view-modal');
     if (!modal) return;
     
-    // If data has only an id, fetch from API
+    // 1. Fetch Fresh Data if only an ID is provided
     if (data && data.id && !data.title) {
         try {
             const response = await fetch(`/api/reports/${data.id}`);
@@ -932,8 +932,10 @@ window.openViewModal = async function(data) {
         }
     }
     
+    // Save coordinates for potential reference
     tempCoords = data.coords;
-    // Mapping Data to UI - Display all synced form data (using unique modal IDs)
+
+    // 2. Map Text Data to UI
     document.getElementById('view-modal-title').innerText = data.title || "No Title";
     document.getElementById('view-modal-user').innerText = data.user || "System Admin";
     document.getElementById('view-modal-date').innerText = data.date || "-";
@@ -941,27 +943,19 @@ window.openViewModal = async function(data) {
     document.getElementById('view-modal-method').innerText = data.method && data.method.trim() !== "" ? data.method : "改善案が未設定です";
     document.getElementById('view-modal-benefits').innerText = data.benefits && data.benefits.trim() !== "" ? data.benefits : "期待効果が未設定です";
     
-    // Update Classification Badge based on category
-    const classificationText = document.getElementById('classification-text');
+    // 3. Classification Badge & Row Logic
     const classificationBadge = document.getElementById('classification-badge');
+    const classificationText = document.getElementById('classification-text');
     
     if (classificationText && classificationBadge) {
         classificationText.innerText = data.category ? data.category.toUpperCase() : "GENERAL";
-        
-        // Set color based on category
         const colorMap = {
-            'production': '#ef4444',    // red
-            'cost': '#f59e0b',           // amber
-            'quality': '#8b5cf6',        // purple
-            'safety': '#ef4444',         // red
-            '5s': '#10b981',             // emerald
-            'others': '#3b82f6'          // blue
+            'production': '#ef4444', 'cost': '#f59e0b', 'quality': '#8b5cf6',
+            'safety': '#ef4444', '5s': '#10b981', 'others': '#3b82f6'
         };
-        
         classificationBadge.style.backgroundColor = colorMap[data.category] || '#3b82f6';
     }
 
-    // Sync Classification Horizontal Selection Row
     const classificationMap = {
         'production': 'view-modal-class-production',
         'cost': 'view-modal-class-cost',
@@ -971,7 +965,6 @@ window.openViewModal = async function(data) {
         'others': 'view-modal-class-others'
     };
     
-    // Reset all classification items to unselected state
     Object.values(classificationMap).forEach(id => {
         const classEl = document.getElementById(id);
         if (classEl) {
@@ -980,7 +973,6 @@ window.openViewModal = async function(data) {
         }
     });
     
-    // Highlight the selected classification
     if (data.category && classificationMap[data.category]) {
         const selectedEl = document.getElementById(classificationMap[data.category]);
         if (selectedEl) {
@@ -989,17 +981,51 @@ window.openViewModal = async function(data) {
         }
     }
 
-    // Handle Image
-    const imgContainer = document.getElementById('view-image-container');
+    // 4. Evidence Image Handler (The Visibility Fix)
     const imgEl = document.getElementById('view-image');
-    if (data.image && data.image !== "") {
-        imgEl.src = data.image;
-        imgContainer.classList.remove('hidden');
-    } else {
-        imgContainer.classList.add('hidden');
+    const placeholderEl = document.getElementById('view-placeholder');
+    const rawPath = data.photo || data.image || "";
+    const imagePath = rawPath.trim();
+
+    // Reset state before loading
+    imgEl.classList.add('hidden');
+    imgEl.style.display = 'none';
+    if (placeholderEl) placeholderEl.style.display = 'flex';
+
+    if (imagePath !== "") {
+        let finalSrc;
+        
+        // Build correct path
+        if (imagePath.startsWith('data:') || imagePath.startsWith('http')) {
+            finalSrc = imagePath;
+        } else if (imagePath.startsWith('/static/uploads/') || imagePath.startsWith('static/uploads/')) {
+            finalSrc = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+        } else {
+            finalSrc = `/static/uploads/${imagePath}`;
+        }
+        
+        // Set Source
+        imgEl.src = finalSrc;
+        
+        // Wait for image load to trigger visibility (prevents render lag)
+        imgEl.onload = () => {
+            imgEl.classList.remove('hidden');
+            imgEl.style.display = 'block';
+            if (placeholderEl) placeholderEl.style.display = 'none';
+        };
+
+        // Fallback for cached images
+        if (imgEl.complete) {
+            imgEl.classList.remove('hidden');
+            imgEl.style.display = 'block';
+            if (placeholderEl) placeholderEl.style.display = 'none';
+        }
+        
+        imgEl.classList.add('cursor-pointer');
+        imgEl.onclick = () => window.open(finalSrc, '_blank');
     }
 
-    // Handle Blueprint Mini-Map with Pin
+    // 5. Blueprint Mini-Map with Pin Logic
     const blueprintImg = document.getElementById('view-modal-blueprint');
     const mapPin = document.getElementById('view-modal-map-pin');
     const mapPlaceholder = document.getElementById('view-modal-map-placeholder');
@@ -1010,18 +1036,14 @@ window.openViewModal = async function(data) {
         blueprintImg.style.display = 'block';
         if (mapPlaceholder) mapPlaceholder.style.display = 'none';
         
-        // --- ADD THIS LINE: This links the click to the Lightbox ---
         blueprintImg.onclick = () => window.openMapLightbox(blueprintPath, data.floorId, true);
-        blueprintImg.classList.add('cursor-zoom-in'); // Visual hint for user
+        blueprintImg.classList.add('cursor-zoom-in');
 
-        // Position the pin on the blueprint
         if (data.coords && mapPin) {
             const relX = (data.coords.lng / 2250) * 100;
             const relY = (1 - (data.coords.lat / 1500)) * 100;
-            
             mapPin.style.left = `${relX}%`;
             mapPin.style.top = `${relY}%`;
-            mapPin.style.transform = 'translate(-50%, -100%)';
             mapPin.classList.remove('hidden');
         } else if (mapPin) {
             mapPin.classList.add('hidden');
@@ -1032,7 +1054,7 @@ window.openViewModal = async function(data) {
         if (mapPin) mapPin.classList.add('hidden');
     }
 
-    // Handle Edit Button - Only show if current user is admin or the submitter
+    // 6. Permissions / Edit Button Logic
     const editBtn = document.getElementById('view-modal-edit-btn');
     if (editBtn) {
         const isAdmin = currentUser.role === "admin";
@@ -1049,15 +1071,12 @@ window.openViewModal = async function(data) {
         }
     }
 
-    // Show Modal properly - Add ACTIVE class to trigger CSS display
+    // 7. Modal Animation Execution
     modal.classList.remove('hidden');
     modal.classList.add('active');
     
-    // Scroll to top of modal content
     const modalContent = document.querySelector('#kaizen-view-modal .overflow-y-auto');
-    if (modalContent) {
-        modalContent.scrollTop = 0;
-    }
+    if (modalContent) modalContent.scrollTop = 0;
     
     setTimeout(() => {
         modal.classList.add('opacity-100');

@@ -28,6 +28,10 @@ from werkzeug.security import generate_password_hash, check_password_hash # Libr
 from datetime import datetime
 import os
 import json
+import uuid
+import base64
+from pathlib import Path
+
 
 # ---------------------------------------------------------
 # APP INITIALIZATION
@@ -67,13 +71,45 @@ class KaizenReport(db.Model):
     lng = db.Column(db.Float, nullable=False)
     floor_id = db.Column(db.String(50))
     category = db.Column(db.String(50)) # production, cost, quality, safety, 5s, others
-    photo = db.Column(db.Text, nullable=True) # changing from LargeBinary to Text
+    photo = db.Column(db.Text, nullable=True) # path to image file
     status = db.Column(db.String(20), default='pending') # pending, approved, completed, rejected
     approval_notes = db.Column(db.Text, nullable=True) # Supervisor/manager feedback
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Manager assignment
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    date_created = db.Column(db.DateTime, default=datetime.now) # Fix: Using local time for Japan
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+# ---------------------------------------------------------
+# HELPER FUNCTIONS (Internal logic)
+# ---------------------------------------------------------
+def _save_base64_image(photo_data):
+    """
+    Internal helper to process Base64 and save to local disk.
+    Returns the relative path to be stored in the DB.
+    """
+    if photo_data and photo_data.startswith('data:image'):
+        try:
+            upload_path = os.path.join(app.root_path, 'static', 'uploads')
+            if not os.path.exists(upload_path):
+                os.makedirs(upload_path)
+
+            header, encoded = photo_data.split(",", 1)
+            
+            # Determine extension (png, jpg, etc)
+            ext_type = header.split('/')[1].split(';')[0]
+            # Standardize jpeg to jpg
+            ext = 'jpg' if ext_type in ['jpeg', 'jpg'] else ext_type
+            
+            image_filename = f"kaizen_{uuid.uuid4()}.{ext}"
+            
+            with open(os.path.join(upload_path, image_filename), "wb") as f:
+                f.write(base64.b64decode(encoded))
+            
+            return f"/static/uploads/{image_filename}"
+        except Exception as e:
+            print(f"Image Save Error: {e}")
+            return None
+    return None
 
 # ---------------------------------------------------------
 # ROUTES (Auth & Navigation)
@@ -146,7 +182,7 @@ def logout():
 def submit_kaizen():
     """
     POST /api/reports
-    Accept form data and save improvement report to database
+    Accept form data, save image to disk, and save report to database
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': '認証が必要です'}), 401
@@ -160,7 +196,10 @@ def submit_kaizen():
             return jsonify({'status': 'error', 'message': f'{field} is required'}), 400
     
     try:
-        # Create new report
+        # --- 1. HANDLE IMAGE UPLOAD (Using Helper) ---
+        db_image_path = _save_base64_image(data.get('photo'))
+
+        # --- 2. CREATE DATABASE ENTRY ---
         new_report = KaizenReport(
             title=data.get('title'),
             description=data.get('description'),
@@ -170,7 +209,7 @@ def submit_kaizen():
             floor_id=data.get('floor_id'),
             lat=float(data.get('lat', 0)),
             lng=float(data.get('lng', 0)),
-            photo=data.get('photo'),  # Store base64 string as-is
+            photo=db_image_path,  # Stores the path "/static/uploads/filename.png"
             status='pending',
             created_by=session['user_id']
         )
@@ -186,15 +225,15 @@ def submit_kaizen():
     
     except Exception as e:
         db.session.rollback()
+        print(f"Submission error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+    
 
 @app.route('/api/reports', methods=['GET'])
 def list_kaizens():
     """
     GET /api/reports
     Retrieve all improvement reports with optional filters
-    Query params: user_id, category, status
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': '認証が必要です'}), 401
@@ -215,11 +254,8 @@ def list_kaizens():
         if status:
             query = query.filter_by(status=status)
         
-        # Order by newest first
         reports = query.order_by(KaizenReport.date_created.desc()).all()
         
-        # Convert to JSON-serializable format
-# Convert to JSON-serializable format
         result = []
         for report in reports:
             creator = User.query.get(report.created_by)
@@ -230,11 +266,11 @@ def list_kaizens():
                 'method': report.method or '',
                 'benefits': report.benefits or '',
                 'category': report.category,
-                'floor_id': report.floor_id, # Main map
-                'floorId': report.floor_id,  # JS expects 'floorId' (camelCase)
+                'floor_id': report.floor_id, 
+                'floorId': report.floor_id,  
                 'lat': report.lat,
                 'lng': report.lng,
-                'image': report.photo,       # JS expects 'image', not 'photo'
+                'image': report.photo,       
                 'status': report.status,
                 'approval_notes': report.approval_notes or '',
                 'user': creator.full_name if creator else 'Unknown',
@@ -280,10 +316,10 @@ def view_kaizen(report_id):
                 'method': report.method or '',
                 'benefits': report.benefits or '',
                 'category': report.category,
-                'floorId': report.floor_id,  # JS expects 'floorId' (camelCase)
+                'floorId': report.floor_id,  
                 'lat': report.lat,
                 'lng': report.lng,
-                'image': report.photo,       # JS expects 'image', not 'photo'
+                'image': report.photo,       
                 'status': report.status,
                 'approval_notes': report.approval_notes or '',
                 'user': creator.full_name if creator else 'Unknown',
@@ -333,12 +369,19 @@ def update_kaizen(report_id):
             report.benefits = data['benefits']
         if 'category' in data:
             report.category = data['category']
-        if 'photo' in data:
-            report.photo = data['photo']
+            
+        # Fix: Ensure updated photos are also saved as files
+        if 'photo' in data and data['photo'] and data['photo'].startswith('data:image'):
+            new_image_path = _save_base64_image(data['photo'])
+            if new_image_path:
+                report.photo = new_image_path
+                
         if 'approval_notes' in data and is_manager:
             report.approval_notes = data['approval_notes']
+            if 'status' in data: # Allows managers to change status during update
+                report.status = data['status']
         
-        report.updated_at = datetime.utcnow()
+        report.updated_at = datetime.now()
         db.session.commit()
         
         return jsonify({
@@ -376,8 +419,11 @@ if __name__ == '__main__':
         report_count = db.session.query(KaizenReport).count()
         if report_count == 0:
             print(">>> Database is empty. Loading seed data...")
-            from seed import seed_db
-            seed_db(db, User, KaizenReport)
+            try:
+                from seed import seed_db
+                seed_db(db, User, KaizenReport)
+            except ImportError:
+                print(">>> Notice: seed.py not found, skipping data seeding.")
 
     # RUNNING MODE:
     # Set debug=False when deploying to company server
