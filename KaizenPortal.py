@@ -230,6 +230,7 @@ def list_kaizens():
                 'method': report.method or '',
                 'benefits': report.benefits or '',
                 'category': report.category,
+                'floor_id': report.floor_id, # Main map
                 'floorId': report.floor_id,  # JS expects 'floorId' (camelCase)
                 'lat': report.lat,
                 'lng': report.lng,

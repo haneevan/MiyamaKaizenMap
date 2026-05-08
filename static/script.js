@@ -255,7 +255,7 @@ function syncMarkersToMainMap() {
                 <div class="p-2">
                     <h3 class="font-bold border-b mb-1">${report.title}</h3>
                     <p class="text-xs text-slate-600">${report.category} | ${report.status}</p>
-                    <button onclick="openViewModal(${report.id})" class="mt-2 text-blue-500 text-xs font-bold">VIEW DETAILS</button>
+                    <button onclick="openViewModal(${JSON.stringify(report).replace(/"/g, '&quot;')})" class="mt-2 text-blue-500 text-xs font-bold">VIEW DETAILS</button>
                 </div>
             `);
             
@@ -338,7 +338,7 @@ window.submitKaizenForm = async function() {
                     method: method,
                     benefits: benefits,
                     category: category,
-                    floorId: selectedFloorId || null,
+                    floor_id: selectedFloorId || null,
                     lat: tempCoords.lat,
                     lng: tempCoords.lng,
                     photo: finalImage
@@ -363,7 +363,7 @@ window.submitKaizenForm = async function() {
                     method: method,
                     benefits: benefits,
                     photo: finalImage,
-                    floorId: selectedFloorId || "Main Map",
+                    floor_id: selectedFloorId || "Main Map",
                     coords: tempCoords,
                     status: 'pending'
                 };
