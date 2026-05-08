@@ -309,6 +309,7 @@ window.openFullForm = function(event) {
 };
 
 window.submitKaizenForm = async function() {
+    // 1. Collect Form Data
     const title = document.getElementById('kaizen-title').value;
     const desc = document.getElementById('kaizen-description').value;
     const method = document.getElementById('kaizen-method')?.value || "";
@@ -317,82 +318,70 @@ window.submitKaizenForm = async function() {
     const category = categoryEl ? categoryEl.value : "others";
     const selectedFloorId = document.getElementById('select-floor').value;
     
-    // Fix: Allow base64 strings so uploaded photos are saved
+    // Image Handling
     const photoSrc = document.getElementById('form-photo-preview')?.src;
     const finalImage = (photoSrc && photoSrc.startsWith('data:image')) ? photoSrc : (photoSrc || null);
 
+    // 2. Validation
     if (!title || !desc) return alert("件名と内容は必須です。");
     if (!tempCoords) return alert("場所をピン留めしてください。");
 
-    let targetLayer = selectedFloorId ? markers[selectedFloorId] : activeMarkerLayer;
-
-    if (targetLayer && tempCoords) {
-        try {
-            // POST to API endpoint
-            const response = await fetch('/api/reports', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: title,
-                    description: desc,
-                    method: method,
-                    benefits: benefits,
-                    category: category,
-                    floor_id: selectedFloorId || null,
-                    lat: tempCoords.lat,
-                    lng: tempCoords.lng,
-                    photo: finalImage
-                })
-            });
-            
-            if (!response.ok) {
-                const errData = await response.json();
-                return alert(`エラー: ${errData.message || 'Unknown error'}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.status === 'success') {
-                const newEntry = {
-                    id: result.id,
-                    date: new Date().toLocaleDateString('ja-JP'),
-                    user: document.querySelector('.hidden.md\\:block')?.innerText || "Unknown", 
-                    title: title,
-                    category: category,
-                    description: desc,
-                    method: method,
-                    benefits: benefits,
-                    photo: finalImage,
-                    floor_id: selectedFloorId || "Main Map",
-                    coords: tempCoords,
-                    status: 'pending'
-                };
-
-                // Create the marker on the map immediately
-                const m = L.marker(tempCoords).addTo(targetLayer);
-                
-                m.on('click', function(e) {
-                    L.DomEvent.stopPropagation(e);
-                    openViewModal(newEntry);
-                });
-
-                // Save to Cache and Update UI
-                improvementCache.push(newEntry);
-                renderImprovementList();
-                renderPersonalKaizenList(); 
-                
-                alert(result.message || "改善提案を登録しました！");
-                
-                // Final Cleanup
-                window.closeKaizenSidePanel();
-                resetRegistrationForm();
-            } else {
-                alert(`エラー: ${result.message || 'Unknown error'}`);
-            }
-        } catch (err) {
-            console.error("Save failed", err);
-            alert(`保存に失敗しました: ${err.message}`);
+    try {
+        // 3. POST to API (Using underscore floor_id for Python)
+        const response = await fetch('/api/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: title,
+                description: desc,
+                method: method,
+                benefits: benefits,
+                category: category,
+                floor_id: selectedFloorId || null,
+                lat: tempCoords.lat,
+                lng: tempCoords.lng,
+                photo: finalImage
+            })
+        });
+        
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.message || 'Server error');
         }
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // --- THE AUTO-UPDATE MAGIC ---
+            
+            // A. Re-fetch all reports from DB (updates improvementCache)
+            // This ensures naming (floorId) and IDs are 100% correct.
+            await loadAllReports(); 
+
+            // B. Trigger UI Re-renders
+            if (typeof syncMarkersToMainMap === 'function') syncMarkersToMainMap();
+            if (typeof renderPersonalKaizenList === 'function') renderPersonalKaizenList();
+            if (typeof updateDashboardMap === 'function') updateDashboardMap();
+            
+            alert(result.message || "改善提案を登録しました！");
+            
+            // C. Cleanup UI
+            window.closeKaizenSidePanel();
+            resetRegistrationForm();
+            
+            // D. Remove the temporary red "placement" pin if it exists
+            if (window.tempMarker) {
+                map.removeLayer(window.tempMarker);
+                window.tempMarker = null;
+            }
+            window.tempCoords = null;
+
+        } else {
+            alert(`エラー: ${result.message || 'Unknown error'}`);
+        }
+    } catch (err) {
+        console.error("Save failed:", err);
+        alert(`保存に失敗しました: ${err.message}`);
     }
 };
 
