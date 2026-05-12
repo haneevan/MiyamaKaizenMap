@@ -8,3 +8,5 @@ static/logo.png
 __pycache__
 イファン　集積アプリ.xlsx
 /static/uploads
+kaizen_portal(old).db
+/image_upload_test/uploads
