@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Upload Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>📷 Image Upload Lab</h2>
+        
+        <input type="file" id="imageInput" accept="image/*">
+        <button onclick="uploadImage()">Upload</button>
+
+        <div id="status"></div>
+
+        <div class="display-area">
+            <div id="previewContainer">
+                <h3>Preview:</h3>
+                <img id="imagePreview" src="" alt="Your image will appear here" style="display:none; max-width: 300px;">
+            </div>
+
+            <div id="logContainer">
+                <h3>Backend Log:</h3>
+                <pre id="dataLog">[]</pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
