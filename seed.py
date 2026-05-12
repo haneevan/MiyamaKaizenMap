@@ -35,29 +35,29 @@ def seed_db(db, User=None, KaizenReport=None):
     
     test_users = [
         {
-            'username': 'staff_alice',
-            'full_name': 'Alice Johnson',
+            'username': 'staff_1',
+            'full_name': '一宮　社員',
             'department': '製造部',
             'password': 'Pass123',
             'access_level': 1
         },
         {
-            'username': 'staff_bob',
-            'full_name': 'Bob Smith',
+            'username': 'staff_2',
+            'full_name': '二人　社員',
             'department': '製造部',
             'password': 'Pass123',
             'access_level': 1
         },
         {
-            'username': 'supervisor_tanaka',
-            'full_name': '田中 監督',
+            'username': 'manager_1',
+            'full_name': '江戸川　室長',
             'department': '管理部',
             'password': 'Pass123',
             'access_level': 2
         },
         {
-            'username': 'manager_suzuki',
-            'full_name': '鈴木 マネージャー',
+            'username': 'head_dept_1',
+            'full_name': '龍之介　部長',
             'department': '第一工場',
             'password': 'Pass123',
             'access_level': 3
