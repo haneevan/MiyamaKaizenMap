@@ -127,45 +127,6 @@
                 </span>
         </button>
 
-        <div id="view-report-modal" class="fixed inset-0 z-[6000] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeViewModal()"></div>
-    <div class="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div id="view-header-bar" class="h-2 w-full bg-blue-500"></div>
-        <div class="p-6">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <span id="view-category" class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-slate-100 text-slate-500 rounded">Category</span>
-                    <h3 id="view-title" class="text-xl font-black text-slate-800 mt-2">Title of Report</h3>
-                </div>
-                <button onclick="closeViewModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-                    <i class="fa-solid fa-circle-xmark text-2xl"></i>
-                </button>
-            </div>
-
-            <div class="space-y-4">
-                <div id="view-image-container" class="w-full aspect-video rounded-xl bg-slate-100 overflow-hidden border border-slate-200 hidden">
-                    <img id="view-image" src="" class="w-full h-full object-cover">
-                </div>
-                
-                <div>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase">内容 / Description</p>
-                    <p id="view-description" class="text-slate-600 text-sm leading-relaxed italic">No description provided.</p>
-                </div>
-
-                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs">
-                            <i class="fa-solid fa-user"></i>
-                        </div>
-                        <span id="view-author" class="text-xs font-bold text-slate-500 underline">User Name</span>
-                    </div>
-                    <span id="view-date" class="text-[10px] text-slate-400">2026/04/16</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
         <!--Content Sections-->
         <main class="flex-grow bg-white relative overflow-hidden">
             <!--Home Section-->
