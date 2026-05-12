@@ -688,14 +688,18 @@
                             <i class="fa-solid fa-camera text-slate-400 text-xs"></i>
                             <h4 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">現場写真 (Evidence Photo)</h4>
                         </div>
-                        <div id="view-image-container" class="aspect-video rounded-xl border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center relative group">
-                            <!-- Placeholder (Shows if no image is provided) -->
-                            <div id="view-placeholder" class="text-center flex flex-col items-center gap-2 opacity-30">
-                                <i class="fa-solid fa-image text-3xl"></i>
-                                <span class="text-[10px] font-bold">No Image Uploaded</span>
+                        <div id="view-image-container" class="aspect-video rounded-xl border-2 border-slate-200 bg-slate-100 overflow-hidden relative flex items-center justify-center">
+                            <div class="evidence-anchor w-full h-full flex items-center justify-center relative">
+                                
+                                <img id="view-image" src="" 
+                                    class="max-w-full max-h-full object-contain z-20" 
+                                    style="display: none;">
+
+                                <div id="view-placeholder" class="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-30 z-10">
+                                    <i class="fa-solid fa-image text-3xl"></i>
+                                    <span class="text-[10px] font-bold">No Image Uploaded</span>
+                                </div>
                             </div>
-                            <!-- Actual Image (Hidden by default in CSS logic, but placed here for your JS to swap) -->
-                            <img id="view-image" src="" alt="Kaizen Evidence" style="display: none;" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                         </div>
                     </div>
 

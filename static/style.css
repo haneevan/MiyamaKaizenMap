@@ -133,22 +133,41 @@ nav, .fixed, .sticky { z-index: 5000 !important; }
     border: 1px solid #e2e8f0;
 }
 
-/* Evidence Photo Fixes */
+/* Evidence Photo Fixes - Mirrored from Blueprint Logic */
 #view-image-container {
     position: relative !important;
     background-color: #f8fafc !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px; /* Ensures the 'box' exists even if empty */
     z-index: 10;
 }
 
 #view-image {
+    /* Layering */
     z-index: 50 !important; 
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    
+    /* Layout: Switch from 100% to Max-limitations (Blueprint Style) */
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    
+    /* Scaling */
+    object-fit: contain; 
+    
+    /* Initial state handled by JS */
+    display: none; 
 }
 
-#view-placeholder { z-index: 5; }
+#view-placeholder { 
+    z-index: 5; 
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
 /* Lightbox System */
 #map-lightbox {
