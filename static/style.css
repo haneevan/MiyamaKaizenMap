@@ -226,3 +226,20 @@ nav, .fixed, .sticky { z-index: 5000 !important; }
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
+
+@media print {
+    body * { visibility: hidden; }
+    #kaizen-view-modal, #kaizen-view-modal .a4-container, #kaizen-view-modal .a4-container * {
+        visibility: visible;
+    }
+    #kaizen-view-modal .a4-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        box-shadow: none;
+        border: none;
+    }
+    /* Hide the Close/Edit/Delete buttons on the printout */
+    #kaizen-view-modal button, .shrink-0.p-6.border-t { display: none; }
+}

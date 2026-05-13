@@ -311,10 +311,10 @@ window.openFullForm = function(event) {
 
 window.submitKaizenForm = async function() {
     // 1. Collect Form Data
-    const title = document.getElementById('kaizen-title').value;
-    const desc = document.getElementById('kaizen-description').value;
-    const method = document.getElementById('kaizen-method')?.value || "";
-    const benefits = document.getElementById('kaizen-benefits')?.value || "";
+    const title = document.getElementById('kaizen-title').value?.trim();
+    const desc = document.getElementById('kaizen-description').value?.trim();
+    const method = document.getElementById('kaizen-method')?.value?.trim() || "";
+    const benefits = document.getElementById('kaizen-benefits')?.value?.trim() || "";
     const categoryEl = document.querySelector('input[name="kubun"]:checked');
     const category = categoryEl ? categoryEl.value : "others";
     const selectedFloorId = document.getElementById('select-floor').value;
@@ -324,8 +324,18 @@ window.submitKaizenForm = async function() {
     const finalImage = (photoSrc && photoSrc.startsWith('data:image')) ? photoSrc : (photoSrc || null);
 
     // 2. Validation
-    if (!title || !desc) return alert("件名と内容は必須です。");
-    if (!tempCoords) return alert("場所をピン留めしてください。");
+    if (!title || !desc) {
+        alert("⚠️ 件名と現状の詳細は必須です。");
+        return;
+    }
+    if (!tempCoords) {
+        alert("⚠️ 場所をピン留めしてください。");
+        return;
+    }
+    if (!categoryEl) {
+        alert("⚠️ 提案区分を選択してください。");
+        return;
+    }
 
     try {
         // 3. POST to API (Using underscore floor_id for Python)
@@ -357,11 +367,9 @@ window.submitKaizenForm = async function() {
             
             // A. Re-fetch all reports from DB (updates improvementCache)
             // This ensures naming (floorId) and IDs are 100% correct.
-            await loadAllReports(); 
+            await window.loadAllReports(); 
 
-            // B. Trigger UI Re-renders
-            if (typeof syncMarkersToMainMap === 'function') syncMarkersToMainMap();
-            if (typeof renderPersonalKaizenList === 'function') renderPersonalKaizenList();
+            // B. Trigger additional UI Re-renders
             if (typeof updateDashboardMap === 'function') updateDashboardMap();
             
             alert(result.message || "改善提案を登録しました！");
@@ -381,19 +389,24 @@ window.submitKaizenForm = async function() {
             alert(`エラー: ${result.message || 'Unknown error'}`);
         }
     } catch (err) {
-        console.error("Save failed:", err);
-        alert(`保存に失敗しました: ${err.message}`);
+        console.error("❌ Form submission failed:", err);
+        alert(`保存に失敗しました: ${err.message || '予期しないエラーが発生しました'}`);
     }
 };
 
 // Helper to clear the form for the next use
 function resetRegistrationForm() {
+    // --- TEXT INPUTS ---
     document.getElementById('kaizen-title').value = "";
     document.getElementById('kaizen-description').value = "";
     if(document.getElementById('kaizen-method')) document.getElementById('kaizen-method').value = "";
     if(document.getElementById('kaizen-benefits')) document.getElementById('kaizen-benefits').value = "";
     
-    // Clear Photo
+    // --- CATEGORY RADIO BUTTONS ---
+    const radioButtons = document.querySelectorAll('input[name="kubun"]');
+    radioButtons.forEach(radio => radio.checked = false);
+    
+    // --- PHOTO PREVIEW ---
     const preview = document.getElementById('form-photo-preview');
     if (preview) {
         preview.src = "";
@@ -402,12 +415,33 @@ function resetRegistrationForm() {
     const placeholder = document.getElementById('upload-placeholder');
     if (placeholder) placeholder.classList.remove('hidden');
 
-    // Reset Coordinates
+    // --- LOCATION DROPDOWNS ---
+    const mainArea = document.getElementById('select-main-area');
+    const building = document.getElementById('select-building');
+    const floor = document.getElementById('select-floor');
+    const miniMap = document.getElementById('sync-mini-map');
+    
+    if (mainArea) mainArea.value = "";
+    if (building) {
+        building.value = "";
+        building.disabled = true;
+        building.classList.add('opacity-50');
+    }
+    if (floor) {
+        floor.value = "";
+        floor.disabled = true;
+        floor.classList.add('opacity-50');
+    }
+    if (miniMap) {
+        miniMap.innerHTML = '<span class="text-[10px] text-slate-400">場所を選択するとマップが表示されます</span>';
+    }
+
+    // --- COORDINATES ---
     tempCoords = null;
     const coordDisplay = document.getElementById('display-coords');
     if(coordDisplay) {
         coordDisplay.innerText = "マップ上で場所を選択してください";
-        coordDisplay.classList.add('text-amber-500');
+        coordDisplay.className = 'text-sm font-mono text-slate-400 mt-1';
     }
 }
 
@@ -423,19 +457,36 @@ function renderImprovementList() {
     }
 
     improvementCache.forEach(item => {
+        // 1. Status Configuration for color-coding
+        const statusConfig = {
+            'pending': { color: 'text-amber-500', label: 'Pending' },
+            'approved': { color: 'text-blue-600', label: 'Approved' },
+            'completed': { color: 'text-green-600', label: 'Completed' }
+        };
+        const statusInfo = statusConfig[item.status] || { color: 'text-slate-500', label: item.status || 'Unknown' };
+
+        // 2. Data Mapping based on Database (image_58ac53.png & image_58b031.png)
+        // Note: Ensure your API JOINs 'kaizen_report.created_by' with 'user.id' 
+        // to provide 'full_name' and 'department' in the 'item' object.
+        const topic = item.title || "No Title";
+        const submitterDept = item.department || "Unknown Dept"; // Linked via created_by ID
+        const submitterName = item.user || item.full_name || "Unknown User";
+
         const row = document.createElement('tr');
         row.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer";
-        row.style.cursor = 'pointer';
         row.innerHTML = `
             <td class="p-4 text-xs text-slate-500">${item.date}</td>
-            <td class="p-4 text-sm font-bold text-slate-700">${item.title}</td>
-            <td class="p-4 text-xs text-slate-600">${item.user}</td>
-            <td class="p-4 text-xs text-slate-600 truncate max-w-[200px]">${item.description}</td>
-            <td class="p-4 text-xs"><span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold">${item.category}</span></td>
-            <td class="p-4 text-xs text-amber-500 font-bold">Pending</td>
+            <td class="p-4 text-sm font-bold text-slate-700">${topic}</td>
+            <td class="p-4 text-xs text-slate-600">${submitterDept}</td>
+            <td class="p-4 text-xs text-slate-600">${submitterName}</td>
+            <td class="p-4 text-xs">
+                <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold">${item.category}</span>
+            </td>
+            <td class="p-4 text-xs ${statusInfo.color} font-bold">
+                ${statusInfo.label}
+            </td>
         `;
         
-        // Click event to view/edit improvement details
         row.addEventListener('click', function() {
             openViewModal(item);
         });
@@ -1346,26 +1397,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 200);
     
-    // Load initial data from API
-    loadAllReports();
+    // Load initial data from API (with error handling)
+    if (typeof window.loadAllReports === 'function') {
+        window.loadAllReports();
+    }
     updateFormDate();
 });
 
 // Load all reports from API
-async function loadAllReports() {
+/**
+ * COORDINATE SYSTEM DOCUMENTATION:
+ * Frontend uses PIXEL COORDINATES based on blueprint dimensions:
+ *   - lat: 0 to 1500 (blueprint height in pixels)
+ *   - lng: 0 to 2250 (blueprint width in pixels)
+ * 
+ * These pixel coords are stored directly in DB lat/lng columns (not geographic coords).
+ * When retrieving: multiply by scale factors to map back to blueprint positions.
+ * 
+ * This intentional design allows:
+ *   - Direct mapping between visual position and database storage
+ *   - No need for geographic reference points
+ *   - Instant pin placement on reopening
+ */
+window.loadAllReports = async function() {
     try {
         const response = await fetch('/api/reports');
-        if (response.ok) {
-            const result = await response.json();
-            if (result.status === 'success') {
-                improvementCache = result.data;
-                renderImprovementList();
-                renderPersonalKaizenList();
-                syncMarkersToMainMap();
-            }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === 'success' && result.data) {
+            improvementCache = result.data;
+            console.log(`✓ Loaded ${improvementCache.length} reports from database`);
+            
+            // Trigger all dependent UI updates
+            if (typeof renderImprovementList === 'function') renderImprovementList();
+            if (typeof renderPersonalKaizenList === 'function') renderPersonalKaizenList();
+            if (typeof syncMarkersToMainMap === 'function') syncMarkersToMainMap();
+        } else {
+            console.warn("API returned unexpected format:", result);
+            improvementCache = [];
         }
     } catch (err) {
-        console.warn("Failed to load reports from API:", err);
-        // Fall back to empty cache if API fails
+        console.error("❌ Failed to load reports from API:", err.message);
+        improvementCache = [];
+        alert(`データ読み込みエラー: ${err.message}`);
     }
 }
