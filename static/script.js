@@ -16,8 +16,16 @@ let improvementCache = [];
 let dashboardMap;
 let floorLookup = {}; // New lookup for O(1) access
 
-// Mock User Data - will be updated by session if available
-let currentUser = { id: "USR001", role: "admin", name: "System Admin" }; 
+// Real User Data - will be updated from session API
+let currentUser = { 
+    id: null, 
+    username: "", 
+    full_name: "Loading...", 
+    name: "Loading...",
+    department: "", 
+    access_level: 1, 
+    role: "user" 
+}; 
 
 // --- 1. CONFIGURATION ---
 const factoryConfig = {
@@ -506,24 +514,13 @@ function renderPersonalKaizenList() {
     const statsPending = document.getElementById('stats-pending');
     const statsApproved = document.getElementById('stats-approved');
 
-    // 2. FIXED Visibility Filtering Logic
+    // 2. FIXED Filtering Logic - Now uses user_id for 100% accuracy
     const filteredList = improvementCache.filter(item => {
-        // 1. Get the name of the person who submitted the report
-        // We check multiple possible fields to be safe
-        const reportAuthor = (item.user || item.full_name || item.author || "").trim();
-        
-        // 2. Get the name of the person currently logged in
-        // Ensure this matches exactly what is shown in the top-right corner of your UI
-        const loggedInUser = (currentUser && (currentUser.name || currentUser.full_name) ? (currentUser.name || currentUser.full_name) : "").trim();
-
-        // Log to console so you can see why it's failing (Press F12 to view)
-        console.log(`Checking report by: "${reportAuthor}" against Logged-in: "${loggedInUser}"`);
-
-        // Only keep it if they match
-        return reportAuthor === loggedInUser;
+        // Filter by user_id (most reliable method)
+        return item.user_id === currentUser.id;
     });
 
-    // 3. Calculate and Update Stats (Fixes the "--" in image_beb3c4.png)
+    // 3. Calculate and Update Stats
     const totalCount = filteredList.length;
     const pendingCount = filteredList.filter(i => i.status === 'pending').length;
     const approvedCount = filteredList.filter(i => i.status === 'approved' || i.status === 'completed').length;
@@ -578,38 +575,32 @@ function renderPersonalKaizenList() {
     });
 }
 
-// render dashboard stats - calculates totals for the dashboard cards based on the global cache
+// render dashboard stats - SHOWS TOTALS FOR ALL USERS
 function updateDashboardStats() {
     const dashTotal = document.getElementById('dash-total');
     const dashPending = document.getElementById('dash-pending');
-    const dashApproved = document.getElementById('dash-approved'); // Make sure this ID exists in HTML
+    const dashApproved = document.getElementById('dash-approved');
     const dashCompleted = document.getElementById('dash-completed');
 
     if (!dashTotal) return;
 
-    // Filter list based on user role (Admin sees all, User sees theirs)
-    const isAdmin = currentUser && currentUser.role === "admin";
-    const displayList = isAdmin 
-        ? improvementCache 
-        : improvementCache.filter(item => {
-            const reportUserName = (item.user || item.full_name || "").trim();
-            const currentUserName = (currentUser.name || "").trim();
-            return reportUserName === currentUserName;
-        });
+    // --- REMOVED FILTER ---
+    // We use improvementCache directly so everyone sees the company-wide progress
+    const displayList = improvementCache; 
 
-    // --- SEPARATED CALCULATIONS ---
+    // --- CALCULATIONS ---
     const totalCount = displayList.length;
     
     // 承認待ち (Pending)
     const pendingCount = displayList.filter(i => i.status === 'pending').length;
     
-    // 承認済み (Approved ONLY - should be 04)
+    // 承認済み (Approved ONLY)
     const approvedCount = displayList.filter(i => i.status === 'approved').length;
     
-    // 改善完了 (Completed ONLY - should be 03)
+    // 改善完了 (Completed ONLY)
     const completedCount = displayList.filter(i => i.status === 'completed').length;
 
-    // Update UI
+    // Update UI with the two-digit format
     dashTotal.textContent = totalCount.toString().padStart(2, '0');
     dashPending.textContent = pendingCount.toString().padStart(2, '0');
     if (dashApproved) dashApproved.textContent = approvedCount.toString().padStart(2, '0');
@@ -1464,8 +1455,49 @@ function renderMiniMapPreview(imgPath, floorId) {
         </div>`;
 }
 
+/**
+ * SYNC USER SESSION FROM SERVER
+ * Fetches the current logged-in user's data from the backend session
+ * Must be called FIRST before loading any user-specific data
+ */
+window.syncUserSession = async function() {
+    try {
+        const response = await fetch('/api/session');
+        
+        if (!response.ok) {
+            throw new Error(`Session Error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === 'success' && result.data) {
+            // Update global currentUser with real session data
+            currentUser = {
+                id: result.data.id,
+                username: result.data.username,
+                full_name: result.data.full_name,
+                name: result.data.name,  // Alias for compatibility
+                department: result.data.department,
+                access_level: result.data.access_level,
+                role: result.data.role
+            };
+            
+            console.log(`✓ User session synced: ${currentUser.full_name} (ID: ${currentUser.id})`);
+            return true;
+        } else {
+            console.warn("⚠️ Session sync returned unexpected format:", result);
+            return false;
+        }
+    } catch (err) {
+        console.error("❌ Failed to sync user session:", err.message);
+        return false;
+    }
+}
+
 // --- INIT ---
 document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    initLightbox();
     showSection('home');
     initLightbox();
     setInterval(updateDashboardClock, 1000);
@@ -1479,10 +1511,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 200);
     
-    // Load initial data from API (with error handling)
-    if (typeof window.loadAllReports === 'function') {
-        window.loadAllReports();
-    }
+    // 1. FIRST: Sync the current user's session from backend
+    window.syncUserSession().then(success => {
+        // 2. THEN: Load all reports from API
+        if (typeof window.loadAllReports === 'function') {
+            window.loadAllReports();
+        }
+    });
+    
     updateFormDate();
 });
 

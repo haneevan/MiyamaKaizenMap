@@ -10,3 +10,4 @@ __pycache__
 /static/uploads
 kaizen_portal(old).db
 /image_upload_test/uploads
+migrating_data.py
