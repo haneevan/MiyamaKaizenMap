@@ -459,9 +459,9 @@ function renderImprovementList() {
     improvementCache.forEach(item => {
         // 1. Status Configuration for color-coding
         const statusConfig = {
-            'pending': { color: 'text-amber-500', label: 'Pending' },
-            'approved': { color: 'text-blue-600', label: 'Approved' },
-            'completed': { color: 'text-green-600', label: 'Completed' }
+            'pending': { color: 'text-amber-500', label: '承認待ち' },
+            'approved': { color: 'text-blue-600', label: '承認済み' },
+            'completed': { color: 'text-green-600', label: '改善完了' }
         };
         const statusInfo = statusConfig[item.status] || { color: 'text-slate-500', label: item.status || 'Unknown' };
 
@@ -500,14 +500,55 @@ function renderPersonalKaizenList() {
     const personalContainer = document.getElementById('personal-kaizen-list');
     if (!personalContainer) return;
 
+    // 1. Reset Container and Stats
     personalContainer.innerHTML = '';
+    const statsTotal = document.getElementById('stats-total');
+    const statsPending = document.getElementById('stats-pending');
+    const statsApproved = document.getElementById('stats-approved');
 
-    if (improvementCache.length === 0) {
-        personalContainer.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400"><p>まだ改善提案がありません</p></div>`;
+    // 2. FIXED Visibility Filtering Logic
+    const filteredList = improvementCache.filter(item => {
+        // 1. Get the name of the person who submitted the report
+        // We check multiple possible fields to be safe
+        const reportAuthor = (item.user || item.full_name || item.author || "").trim();
+        
+        // 2. Get the name of the person currently logged in
+        // Ensure this matches exactly what is shown in the top-right corner of your UI
+        const loggedInUser = (currentUser && (currentUser.name || currentUser.full_name) ? (currentUser.name || currentUser.full_name) : "").trim();
+
+        // Log to console so you can see why it's failing (Press F12 to view)
+        console.log(`Checking report by: "${reportAuthor}" against Logged-in: "${loggedInUser}"`);
+
+        // Only keep it if they match
+        return reportAuthor === loggedInUser;
+    });
+
+    // 3. Calculate and Update Stats (Fixes the "--" in image_beb3c4.png)
+    const totalCount = filteredList.length;
+    const pendingCount = filteredList.filter(i => i.status === 'pending').length;
+    const approvedCount = filteredList.filter(i => i.status === 'approved' || i.status === 'completed').length;
+
+    if (statsTotal) statsTotal.textContent = totalCount;
+    if (statsPending) statsPending.textContent = pendingCount;
+    if (statsApproved) statsApproved.textContent = approvedCount;
+
+    // 4. Render the Cards
+    if (filteredList.length === 0) {
+        personalContainer.innerHTML = `
+            <div class="col-span-full text-center py-12 text-slate-400">
+                <p>表示できる改善提案がありません</p>
+            </div>`;
         return;
     }
 
-    improvementCache.forEach(item => {
+    filteredList.forEach(item => {
+        const statusConfig = {
+            'pending': { color: 'text-amber-500', label: '承認待ち' },
+            'approved': { color: 'text-blue-600', label: '承認済み' },
+            'completed': { color: 'text-green-600', label: '改善完了' }
+        };
+        const statusInfo = statusConfig[item.status] || { color: 'text-slate-500', label: item.status };
+
         const card = document.createElement('div');
         card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all cursor-pointer group";
         card.innerHTML = `
@@ -515,23 +556,64 @@ function renderPersonalKaizenList() {
                 <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex-1">${item.title}</h3>
                 <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold text-[10px]">${item.category}</span>
             </div>
-            <p class="text-xs text-slate-500 mb-3">${item.date} | ${item.floorId}</p>
-            <p class="text-sm text-slate-600 line-clamp-2 mb-3">${item.description}</p>
+            <div class="flex flex-col gap-1 mb-3">
+                <p class="text-[11px] text-slate-500 font-medium">
+                    <i class="fa-regular fa-calendar-check mr-1"></i> ${item.date}
+                </p>
+                <p class="text-[11px] text-slate-600">
+                    <span class="font-bold">${item.department || "Dept"}</span> | ${item.user || item.full_name}
+                </p>
+            </div>
+            <p class="text-sm text-slate-600 line-clamp-2 mb-4 h-10">${item.description || ""}</p>
             <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-                <span class="text-xs text-amber-500 font-bold">Status: Pending</span>
-                <button onclick="event.stopPropagation(); openViewModal(${JSON.stringify(item).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-700 font-bold text-xs">
-                    詳細 &rarr;
-                </button>
+                <span class="text-xs ${statusInfo.color} font-bold">
+                    <i class="fa-solid fa-circle-info mr-1"></i> ${statusInfo.label}
+                </span>
+                <span class="text-blue-600 font-bold text-xs">詳細 &rarr;</span>
             </div>
         `;
         
-        // Click event to view details
-        card.addEventListener('click', function() {
-            openViewModal(item);
-        });
-        
+        card.addEventListener('click', () => openViewModal(item));
         personalContainer.appendChild(card);
     });
+}
+
+// render dashboard stats - calculates totals for the dashboard cards based on the global cache
+function updateDashboardStats() {
+    const dashTotal = document.getElementById('dash-total');
+    const dashPending = document.getElementById('dash-pending');
+    const dashApproved = document.getElementById('dash-approved'); // Make sure this ID exists in HTML
+    const dashCompleted = document.getElementById('dash-completed');
+
+    if (!dashTotal) return;
+
+    // Filter list based on user role (Admin sees all, User sees theirs)
+    const isAdmin = currentUser && currentUser.role === "admin";
+    const displayList = isAdmin 
+        ? improvementCache 
+        : improvementCache.filter(item => {
+            const reportUserName = (item.user || item.full_name || "").trim();
+            const currentUserName = (currentUser.name || "").trim();
+            return reportUserName === currentUserName;
+        });
+
+    // --- SEPARATED CALCULATIONS ---
+    const totalCount = displayList.length;
+    
+    // 承認待ち (Pending)
+    const pendingCount = displayList.filter(i => i.status === 'pending').length;
+    
+    // 承認済み (Approved ONLY - should be 04)
+    const approvedCount = displayList.filter(i => i.status === 'approved').length;
+    
+    // 改善完了 (Completed ONLY - should be 03)
+    const completedCount = displayList.filter(i => i.status === 'completed').length;
+
+    // Update UI
+    dashTotal.textContent = totalCount.toString().padStart(2, '0');
+    dashPending.textContent = pendingCount.toString().padStart(2, '0');
+    if (dashApproved) dashApproved.textContent = approvedCount.toString().padStart(2, '0');
+    if (dashCompleted) dashCompleted.textContent = completedCount.toString().padStart(2, '0');
 }
 
 // --- 5. LIGHTBOX INTERACTION (DRAG/ZOOM) ---
@@ -1437,6 +1519,11 @@ window.loadAllReports = async function() {
             if (typeof renderImprovementList === 'function') renderImprovementList();
             if (typeof renderPersonalKaizenList === 'function') renderPersonalKaizenList();
             if (typeof syncMarkersToMainMap === 'function') syncMarkersToMainMap();
+            if (typeof updateDashboardMap === 'function') updateDashboardMap();
+            
+            // --- ADD THIS LINE BELOW ---
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            
         } else {
             console.warn("API returned unexpected format:", result);
             improvementCache = [];

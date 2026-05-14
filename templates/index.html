@@ -136,30 +136,31 @@
                         <h2 class="text-xl font-black text-slate-800 tracking-tight">ダッシュボード <span class="text-sm font-normal text-slate-400 ml-2">Dashboard</span></h2>
                         <div class="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">2026年 03月 24日 現在</div>
                     </div>
-                    
-                        
-
                     <div class="grid grid-cols-4 gap-0 rounded-xl overflow-hidden border border-slate-200 shadow-sm mb-6">
                         <!--improvement index-->
                         <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
                             <span class="text-[10px] font-bold text-red-500 mb-1 tracking-widest">指摘数</span>
-                            <div class="text-2xl font-black text-slate-800">20</div>
+                            <!-- Added ID here -->
+                            <div id="dash-total" class="text-2xl font-black text-slate-800">--</div>
                             <div class="w-full h-1 bg-red-400 mt-2 rounded-full"></div>
                         </div>
                         <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
                             <span class="text-[10px] font-bold text-amber-500 mb-1 tracking-widest">承認待ち</span>
-                            <div class="text-2xl font-black text-slate-800">10</div>
+                            <!-- Added ID here -->
+                            <div id="dash-pending" class="text-2xl font-black text-slate-800">--</div>
                             <div class="w-full h-1 bg-amber-400 mt-2 rounded-full"></div>
                         </div>
                         <div class="bg-white p-4 border-r border-slate-100 flex flex-col items-center">
-                            <span class="text-[10px] font-bold text-emerald-500 mb-1 tracking-widest">改善完了</span>
-                            <div class="text-2xl font-black text-slate-800">05</div>
-                            <div class="w-full h-1 bg-emerald-400 mt-2 rounded-full"></div>
+                            <span class="text-[10px] font-bold text-blue-500 mb-1 tracking-widest">承認済み</span>
+                            <!-- Added ID here -->
+                            <div id="dash-approved" class="text-2xl font-black text-slate-800">--</div>
+                            <div class="w-full h-1 bg-blue-400 mt-2 rounded-full"></div>
                         </div>
                         <div class="bg-white p-4 flex flex-col items-center">
-                            <span class="text-[10px] font-bold text-slate-400 mb-1 tracking-widest">アーカイブ</span>
-                            <div class="text-2xl font-black text-slate-800">05</div>
-                            <div class="w-full h-1 bg-slate-300 mt-2 rounded-full"></div>
+                            <span class="text-[10px] font-bold text-emerald-500 mb-1 tracking-widest">改善完了</span>
+                            <!-- Added ID here -->
+                            <div id="dash-completed" class="text-2xl font-black text-slate-800">--</div>
+                            <div class="w-full h-1 bg-emerald-300 mt-2 rounded-full"></div>
                         </div>
                     <!--------------->
                     </div>
@@ -205,8 +206,37 @@
             </section>
             <!--Personal Section-->
             <section id="content-personal" class="p-8 hidden h-full overflow-y-auto text-left bg-slate-50">
-                <h2 class="text-2xl font-black text-slate-800 mb-6">個人改善リスト <span class="text-sm font-normal text-slate-400">My Contributions</span></h2>
-                <div id="personal-kaizen-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800">個人改善リスト <span class="text-sm font-normal text-slate-400">My Contributions</span></h2>
+                        <p class="text-xs text-slate-500 mt-1">あなたがこれまでに提出した改善提案の状況を確認できます。</p>
+                    </div>
+                    <!-- Optional: A Refresh button to manually pull latest cache -->
+                    <button onclick="loadAllReports()" class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+
+                <!-- Personal Stats Row (Optional but recommended) -->
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-[10px] uppercase font-bold text-slate-400">Total Submitted</p>
+                        <p id="stats-total" class="text-xl font-black text-slate-700">--</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-amber-400">
+                        <p class="text-[10px] uppercase font-bold text-slate-400">Pending</p>
+                        <p id="stats-pending" class="text-xl font-black text-amber-600">--</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-green-400">
+                        <p class="text-[10px] uppercase font-bold text-slate-400">Approved</p>
+                        <p id="stats-approved" class="text-xl font-black text-green-600">--</p>
+                    </div>
+                </div>
+
+                <!-- The Grid Container -->
+                <div id="personal-kaizen-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Cards will be injected here by renderPersonalKaizenList() -->
+                </div>
             </section>
             <!--Profile Section-->
             <section id="content-profile" class="p-8 hidden h-full overflow-y-auto text-left bg-slate-50">
