@@ -178,6 +178,36 @@ def logout():
 # API ENDPOINTS (JSON REST)
 # ---------------------------------------------------------
 
+@app.route('/api/session', methods=['GET'])
+def get_current_user():
+    """
+    GET /api/session
+    Returns the current logged-in user's session data
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
+    
+    try:
+        user = User.query.get(session['user_id'])
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.full_name,
+                'name': user.full_name,  # Alias for compatibility
+                'department': user.department,
+                'access_level': user.access_level,
+                'role': 'admin' if user.access_level >= 3 else 'user'
+            }
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/reports', methods=['POST'])
 def submit_kaizen():
     """
