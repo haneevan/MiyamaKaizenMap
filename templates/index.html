@@ -134,7 +134,7 @@
                 <div class="max-w-6xl mx-auto">
                     <div class="flex justify-between items-end mb-4">
                         <h2 class="text-xl font-black text-slate-800 tracking-tight">ダッシュボード <span class="text-sm font-normal text-slate-400 ml-2">Dashboard</span></h2>
-                        <div class="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">2026年 03月 24日 現在</div>
+                        <div id="dashboard-clock" class="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">2026年 03月 24日 現在</div>
                     </div>
                     <div class="grid grid-cols-4 gap-0 rounded-xl overflow-hidden border border-slate-200 shadow-sm mb-6">
                         <!--improvement index-->
@@ -192,12 +192,24 @@
                     <table class="w-full border-collapse">
                         <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
-                                <th class="p-4 text-left">日付</th>
-                                <th class="p-4 text-left">テーマ</th>
-                                <th class="p-4 text-left">部署</th>
-                                <th class="p-4 text-left">制作者</th>
-                                <th class="p-4 text-left">区分</th>
-                                <th class="p-4 text-left">ステータス</th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('date')">
+                                    日付 <span id="sort-date" class="text-slate-300 ml-1">↕</span>
+                                </th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('title')">
+                                    テーマ <span id="sort-title" class="text-slate-300 ml-1">↕</span>
+                                </th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('department')">
+                                    部署 <span id="sort-department" class="text-slate-300 ml-1">↕</span>
+                                </th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('maker')">
+                                    制作者 <span id="sort-maker" class="text-slate-300 ml-1">↕</span>
+                                </th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('category')">
+                                    区分 <span id="sort-category" class="text-slate-300 ml-1">↕</span>
+                                </th>
+                                <th class="p-4 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none" onclick="sortImprovementList('status')">
+                                    ステータス <span id="sort-status" class="text-slate-300 ml-1">↕</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="improvement-list-body" class="text-sm text-slate-700 divide-y divide-slate-100"></tbody>

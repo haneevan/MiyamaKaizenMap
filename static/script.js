@@ -16,6 +16,12 @@ let improvementCache = [];
 let dashboardMap;
 let floorLookup = {}; // New lookup for O(1) access
 
+// Sorting state for improvement list
+let sortState = {
+    column: 'date',  // current sort column
+    direction: 'desc'  // 'asc' or 'desc'
+};
+
 // Real User Data - will be updated from session API
 let currentUser = { 
     id: null, 
@@ -88,8 +94,7 @@ const office_othersConfig = {
 
 const markers = {};
 const allConfigs = [factoryConfig, office_othersConfig];
-
-// Initialize Lookup Table
+// --- 2. Initialize Lookup Table
 allConfigs.forEach(configSet => {
     for (const building in configSet) {
         Object.entries(configSet[building].floors).forEach(([floorName, floorInfo]) => {
@@ -453,6 +458,41 @@ function resetRegistrationForm() {
     }
 }
 
+function sortImprovementList(column) {
+    // Toggle direction if clicking the same column, otherwise set to descending
+    if (sortState.column === column) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.column = column;
+        sortState.direction = 'desc';
+    }
+    
+    // Update sort indicators
+    updateSortIndicators();
+    
+    // Re-render the list
+    renderImprovementList();
+}
+
+function updateSortIndicators() {
+    // Reset all indicators
+    const indicators = ['date', 'title', 'department', 'maker', 'category', 'status'];
+    indicators.forEach(col => {
+        const element = document.getElementById(`sort-${col}`);
+        if (element) {
+            element.textContent = '↕';
+            element.className = 'text-slate-300 ml-1';
+        }
+    });
+    
+    // Set active indicator
+    const activeElement = document.getElementById(`sort-${sortState.column}`);
+    if (activeElement) {
+        activeElement.textContent = sortState.direction === 'asc' ? '↑' : '↓';
+        activeElement.className = 'text-blue-600 ml-1 font-bold';
+    }
+}
+
 function renderImprovementList() {
     const listBody = document.getElementById('improvement-list-body');
     if (!listBody) return;
@@ -464,8 +504,47 @@ function renderImprovementList() {
         return;
     }
 
-    improvementCache.forEach(item => {
-        // 1. Status Configuration for color-coding
+    // Translation Map
+    const categoryJpMap = {
+        'production': '生産性',
+        'cost': '原価',
+        'quality': '品質',
+        'safety': '安全',
+        '5s': '５S',
+        'others': 'その他'
+    };
+
+    const sortedCache = [...improvementCache].sort((a, b) => {
+        let comparison = 0;
+        switch(sortState.column) {
+            case 'date':
+                const dateA = new Date(a.date?.replace(/\./g, '-') || 0).getTime();
+                const dateB = new Date(b.date?.replace(/\./g, '-') || 0).getTime();
+                comparison = dateA - dateB;
+                break;
+            case 'title':
+                comparison = (a.title || '').localeCompare(b.title || '', 'ja');
+                break;
+            case 'department':
+                comparison = (a.department || '').localeCompare(b.department || '', 'ja');
+                break;
+            case 'maker':
+                comparison = (a.user || a.full_name || '').localeCompare(b.user || b.full_name || '', 'ja');
+                break;
+            case 'category':
+                comparison = (a.category || '').localeCompare(b.category || '', 'ja');
+                break;
+            case 'status':
+                const statusOrder = { 'pending': 1, 'approved': 2, 'completed': 3 };
+                comparison = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+                break;
+            default:
+                comparison = 0;
+        }
+        return sortState.direction === 'asc' ? comparison : -comparison;
+    });
+
+    sortedCache.forEach(item => {
         const statusConfig = {
             'pending': { color: 'text-amber-500', label: '承認待ち' },
             'approved': { color: 'text-blue-600', label: '承認済み' },
@@ -473,12 +552,12 @@ function renderImprovementList() {
         };
         const statusInfo = statusConfig[item.status] || { color: 'text-slate-500', label: item.status || 'Unknown' };
 
-        // 2. Data Mapping based on Database (image_58ac53.png & image_58b031.png)
-        // Note: Ensure your API JOINs 'kaizen_report.created_by' with 'user.id' 
-        // to provide 'full_name' and 'department' in the 'item' object.
         const topic = item.title || "No Title";
-        const submitterDept = item.department || "Unknown Dept"; // Linked via created_by ID
+        const submitterDept = item.department || "Unknown Dept";
         const submitterName = item.user || item.full_name || "Unknown User";
+        
+        // Translate category label
+        const displayCategory = categoryJpMap[item.category?.toLowerCase()] || item.category;
 
         const row = document.createElement('tr');
         row.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer";
@@ -488,17 +567,14 @@ function renderImprovementList() {
             <td class="p-4 text-xs text-slate-600">${submitterDept}</td>
             <td class="p-4 text-xs text-slate-600">${submitterName}</td>
             <td class="p-4 text-xs">
-                <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold">${item.category}</span>
+                <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold">${displayCategory}</span>
             </td>
             <td class="p-4 text-xs ${statusInfo.color} font-bold">
                 ${statusInfo.label}
             </td>
         `;
         
-        row.addEventListener('click', function() {
-            openViewModal(item);
-        });
-        
+        row.addEventListener('click', () => openViewModal(item));
         listBody.appendChild(row);
     });
 }
@@ -508,15 +584,24 @@ function renderPersonalKaizenList() {
     const personalContainer = document.getElementById('personal-kaizen-list');
     if (!personalContainer) return;
 
+    // Translation Map for Categories
+    const categoryJpMap = {
+        'production': '生産性',
+        'cost': '原価',
+        'quality': '品質',
+        'safety': '安全',
+        '5s': '５S',
+        'others': 'その他'
+    };
+
     // 1. Reset Container and Stats
     personalContainer.innerHTML = '';
     const statsTotal = document.getElementById('stats-total');
     const statsPending = document.getElementById('stats-pending');
     const statsApproved = document.getElementById('stats-approved');
 
-    // 2. FIXED Filtering Logic - Now uses user_id for 100% accuracy
+    // 2. Filtering Logic - Uses user_id for 100% accuracy
     const filteredList = improvementCache.filter(item => {
-        // Filter by user_id (most reliable method)
         return item.user_id === currentUser.id;
     });
 
@@ -525,9 +610,9 @@ function renderPersonalKaizenList() {
     const pendingCount = filteredList.filter(i => i.status === 'pending').length;
     const approvedCount = filteredList.filter(i => i.status === 'approved' || i.status === 'completed').length;
 
-    if (statsTotal) statsTotal.textContent = totalCount;
-    if (statsPending) statsPending.textContent = pendingCount;
-    if (statsApproved) statsApproved.textContent = approvedCount;
+    if (statsTotal) statsTotal.textContent = totalCount.toString().padStart(2, '0');
+    if (statsPending) statsPending.textContent = pendingCount.toString().padStart(2, '0');
+    if (statsApproved) statsApproved.textContent = approvedCount.toString().padStart(2, '0');
 
     // 4. Render the Cards
     if (filteredList.length === 0) {
@@ -546,12 +631,15 @@ function renderPersonalKaizenList() {
         };
         const statusInfo = statusConfig[item.status] || { color: 'text-slate-500', label: item.status };
 
+        // Apply Translation
+        const displayCategory = categoryJpMap[item.category?.toLowerCase()] || item.category;
+
         const card = document.createElement('div');
         card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all cursor-pointer group";
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors flex-1">${item.title}</h3>
-                <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold text-[10px]">${item.category}</span>
+                <span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full font-bold text-[10px]">${displayCategory}</span>
             </div>
             <div class="flex flex-col gap-1 mb-3">
                 <p class="text-[11px] text-slate-500 font-medium">
